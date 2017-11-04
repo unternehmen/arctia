@@ -66,7 +66,6 @@ class Penguin(object):
     def __init__(self, stage, x, y):
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
-
         self.x = x
         self.y = y
         self.stage = stage
@@ -80,14 +79,12 @@ class Penguin(object):
 
     def _take_turn(self):
         target = self.stage.get_tile_at(self.x - 1, self.y - 1)
-
         if target != 2:
             self.x -= 1
             self.y -= 1
 
     def update(self):
         self.timer = (self.timer - 1) % 10
-
         if self.timer == 0:
             self._take_turn()
 
@@ -113,6 +110,7 @@ if __name__ == '__main__':
                       math.floor(player_start_y / 16))
 
     drag_origin = None
+    mine_jobs = []
 
     tools = ['cursor', 'mine', 'haul', 'stockpile']
     selected_tool = 'cursor'
@@ -129,9 +127,28 @@ if __name__ == '__main__':
                 my = math.floor(event.pos[1] / SCREEN_ZOOM)
                 if event.button == 1:
                     if mx < MENU_WIDTH:
-                        # Select a tool in the menu bar
+                        # Select a tool in the menu bar.
                         if my < len(tools) * 16:
                             selected_tool = tools[math.floor(my / 16)]
+                    else:
+                        # Use the selected tool.
+                        if selected_tool == 'mine':
+                            tx = math.floor((camera_x + mx
+                                             - MENU_WIDTH)
+                                            / 16)
+                            ty = math.floor((camera_y + my) / 16)
+                            tid = stage.get_tile_at(tx, ty)
+
+                            if tid == 2:
+                                job_exists = False
+                                for job in mine_jobs:
+                                    if job[0] == tx and job[1] == ty:
+                                        print('Job already exists')
+                                        job_exists = True
+                                        break
+
+                                if not job_exists:
+                                    mine_jobs.append((tx, ty))
                 elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = math.floor(event.pos[0] \
@@ -169,6 +186,14 @@ if __name__ == '__main__':
         penguin.draw(virtual_screen, tileset, camera_x, camera_y)
 
         # Draw the selection box under the cursor if there is one.
+        for pos in mine_jobs:
+            virtual_screen.blit(tileset,
+                                (pos[0] * 16 - camera_x \
+                                 + MENU_WIDTH,
+                                 pos[1] * 16 - camera_y),
+                                (160, 0, 16, 16))
+
+        # Draw the selection box under the cursor if there is one.
         if mouse_x > MENU_WIDTH:
             wx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
             wy = math.floor((camera_y + mouse_y) / 16)
@@ -188,7 +213,7 @@ if __name__ == '__main__':
             else:
                 offset_y = 16
             virtual_screen.blit(tileset, (0, i * 16),
-                                (i * 16, offset_y, 16, 16))
+                                (128 + i * 16, offset_y, 16, 16))
 
         # Scale and draw onto the real screen.
         pygame.transform.scale(virtual_screen,
