@@ -16,6 +16,8 @@ SCREEN_REAL_DIMS = tuple([x * SCREEN_ZOOM for x in SCREEN_LOGICAL_DIMS])
 MENU_WIDTH = 16
 SCROLL_FACTOR = 2
 
+def tile_is_solid(tid):
+    return tid in (2, 3, 5)
 
 class Stage(object):
     def __init__(self):
@@ -59,6 +61,8 @@ class Stage(object):
         return self.player_start_x, self.player_start_y
 
     def get_tile_at(self, x, y):
+        if x < 0 or x >= self.width or y < 0 or y >= self.height:
+            return None
         return self.data[y][x]
 
 class JobSearch(object):
@@ -79,6 +83,7 @@ class JobSearch(object):
 
     def __init__(self, stage, mine_jobs):
         """Create a new JobSearch."""
+        self.busy = False
         self._stage = stage
         self._mine_jobs = mine_jobs
 
@@ -100,18 +105,20 @@ class JobSearch(object):
                             JobSearch.RIGHT,
                             JobSearch.DOWNRIGHT]
 
-    def run(self, start_x, start_y):
+    def start(self, from_x, from_y):
         """
-        Search for jobs starting from the given position.
+        Begin searching for jobs starting from the given position.
 
         Arguments:
-            start_x: the initial x coordinate
-            start_y: the initial y coordinate
+            from_x: the initial x coordinate
+            from_y: the initial y coordinate
 
         Returns:
             the found job as (x, y) or None if no job was found
         """
-        exhausted_tiles = False
+        self._shortest_path = []
+        self._start_x = from_x
+        self._start_y = from_y
 
         # Clear the state arrays.
         for y in range(len(self._visited)):
@@ -121,16 +128,81 @@ class JobSearch(object):
                 self._paths[y][x] = None
 
         # Mark the starting point as visited.
-        self._visited[start_y][start_x] = True
+        self._visited[from_y][from_x] = True
 
-        while not exhausted_tiles:
+        # State that the job searcher is busy.
+        self.busy = True
+
+    def notify(self, xoff, yoff):
+        """
+        Notify the job search that the originating mob has moved.
+
+        Job searches are always started from some mob's location.
+        Because job searches are run incrementally over many frames,
+        the object which started the job search might move in mid-search.
+
+        In order for the job search to give a correct shortest path
+        to the found job, it needs to know where the originating mob
+        is at all times.  To that end, this procedure should be run
+        whenever the mob responsible for the job search moves.
+
+        For example, if a penguin moves (1, 1) from its previous
+        position, it should also run notify(1, 1) on its job_search.
+
+        Arguments:
+            xoff: the offset from the original starting x coordinate
+            yoff: the offset from the original starting y coordinate
+        """
+        if not self.busy:
+            return
+
+        self._shortest_path.insert(0, (xoff, yoff))
+
+    def _traceback(self, job):
+        """
+        Return the already-calculated shortest path to the found job.
+
+        Arguments:
+            job:
+                The position (x, y) of the job we found.
+        """
+        path_suffix = []
+        cx, cy = job
+        direction = self._paths[cy][cx]
+
+        while direction is not None:
+            for i, sel_direction in enumerate(self._directions):
+                if sel_direction == direction:
+                    xoff, yoff = self._offsets[i]
+
+            path_suffix.insert(0, (xoff, yoff))
+            cx -= xoff
+            cy -= yoff
+            direction = self._paths[cy][cx]
+
+        return self._shortest_path + path_suffix
+
+    def run(self, limit=10):
+        """
+        Continue a previously started job search.
+
+        Arguments:
+            limit: the number of breadth descensions to try
+
+        Returns:
+            the found job as (x, y) or None if no job was found
+        """
+        exhausted_tiles = False
+
+        while not exhausted_tiles and limit > 0:
             exhausted_tiles = True
 
             for y in range(self._stage.height):
                 for x in range(self._stage.width):
                     if self._visited[y][x] \
                        and not self._staleness[y][x] \
-                       and self._stage.get_tile_at(x, y) not in (2, 3):
+                       and not tile_is_solid(
+                                 self._stage.get_tile_at(x, y)):
                         # This is a non-solid tile, so
                         # check all paths leading out from it.
                         i = 0
@@ -148,9 +220,14 @@ class JobSearch(object):
                                 # Check if there is a job there.
                                 for job in self._mine_jobs:
                                     if job == (ox, oy):
-                                        return job
+                                        self.busy = False
+                                        return self._traceback(job)
                             i += 1
                         self._staleness[y][x] = True
+            limit -= 1
+
+        if exhausted_tiles:
+            self.busy = False
 
         # No job was found.
         return None
@@ -173,18 +250,43 @@ class Penguin(object):
                     (0, 0, 16, 16))
 
     def _take_turn(self):
-        # If the penguin has no job, give it one.
-        if self.task is None:
-            job = job_search.run(self.x, self.y)
+        if self.task and len(self.task) > 0:
+            xoff, yoff = self.task[0]
+
+            if not tile_is_solid(
+                     self.stage.get_tile_at(
+                       self.x + xoff,
+                       self.y + yoff)):
+                self.x += xoff
+                self.y += yoff
+                self.task = self.task[1:]
+            elif len(self.task) == 1:
+                # Start working on the assigned job.
+                self.task = self.task[1:]
+            else:
+                # bug - does not adapt if the path changes!  fix me!
+                pass
+        elif self.task and len(self.task) == 0:
+            # Start working on the assigned job.
+            print('bump!')
+        else:
+            if not self.job_search.busy:
+                self.job_search.start(self.x, self.y)
+
+    def update(self):
+        self.timer = (self.timer - 1) % 10
+
+        # If we are running a job search, process on it some.
+        if self.job_search.busy:
+            job = self.job_search.run(limit=2)
 
             if job is None:
                 print('No job found... :(')
             else:
                 print('Found a job!')
+                print(job)
                 self.task = job
 
-    def update(self):
-        self.timer = (self.timer - 1) % 10
         if self.timer == 0:
             self._take_turn()
 
@@ -206,12 +308,11 @@ if __name__ == '__main__':
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
     mine_jobs = []
-    job_search = JobSearch(stage, mine_jobs)
 
     penguin = Penguin(stage,
                       math.floor(player_start_x / 16),
                       math.floor(player_start_y / 16),
-                      job_search)
+                      JobSearch(stage, mine_jobs))
 
     drag_origin = None
 
@@ -242,7 +343,9 @@ if __name__ == '__main__':
                             ty = math.floor((camera_y + my) / 16)
                             tid = stage.get_tile_at(tx, ty)
 
-                            if tid == 2:
+                            if tid is None:
+                                pass
+                            elif tid == 2:
                                 job_exists = False
                                 for job in mine_jobs:
                                     if job[0] == tx and job[1] == ty:
