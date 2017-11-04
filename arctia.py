@@ -1,6 +1,8 @@
+#!/usr/bin/env python
 import pygame
 import atexit
 import sys
+import os
 
 
 # Game constants
@@ -17,6 +19,9 @@ if __name__ == '__main__':
     screen = pygame.display.set_mode(SCREEN_REAL_DIMS)
     virtual_screen = pygame.Surface(SCREEN_LOGICAL_DIMS)
     scaled_screen = pygame.Surface(SCREEN_REAL_DIMS)
+
+    pygame.mixer.music.load(os.path.join('music', 'nescape.ogg'))
+    pygame.mixer.music.play(loops=-1)
 
     clock = pygame.time.Clock()
     while True:
