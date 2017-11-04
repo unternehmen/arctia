@@ -38,14 +38,21 @@ class Stage(object):
                 self.data[y][x] = ty * 16 + tx
 
     def draw(self, screen, tileset, camera_x, camera_y):
-        for y in range(self.height):
-            for x in range(self.width):
+        clip_left = math.floor(camera_x / 16)
+        clip_top = math.floor(camera_y / 16)
+        clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
+        clip_height = math.floor(SCREEN_LOGICAL_HEIGHT / 16 + 1)
+        for y in range(clip_top, clip_top + clip_height):
+            for x in range(clip_left, clip_left + clip_width):
+                if x < 0 or x >= self.width \
+                   or y < 0 or y >= self.height:
+                    continue
                 tid = self.data[y][x]
                 tx = tid % 16
                 ty = math.floor(tid / 16)
                 screen.blit(tileset,
                             (x * 16 - camera_x + MENU_WIDTH,
-                             y * 16 - camera_y + MENU_WIDTH),
+                             y * 16 - camera_y),
                             (tx * 16, ty * 16, 16, 16))
 
     def get_player_start_pos(self):
@@ -68,7 +75,7 @@ class Penguin(object):
     def draw(self, screen, tileset, camera_x, camera_y):
         screen.blit(tileset,
                     (self.x * 16 - camera_x + MENU_WIDTH,
-                     self.y * 16 - camera_y + MENU_WIDTH),
+                     self.y * 16 - camera_y),
                     (0, 0, 16, 16))
 
     def _take_turn(self):
@@ -107,8 +114,7 @@ if __name__ == '__main__':
 
     drag_origin = None
 
-    # 'cursor' | 'mine' | 'haul'
-    tools = ['cursor', 'mine', 'haul']
+    tools = ['cursor', 'mine', 'haul', 'stockpile']
     selected_tool = 'cursor'
 
     pygame.mixer.music.play(loops=-1)
@@ -123,11 +129,15 @@ if __name__ == '__main__':
                 my = math.floor(event.pos[1] / SCREEN_ZOOM)
                 if event.button == 1:
                     if mx < MENU_WIDTH:
+                        # Select a tool in the menu bar
                         if my < len(tools) * 16:
                             selected_tool = tools[math.floor(my / 16)]
                 elif event.button == 3:
                     # Begin dragging the screen.
-                    drag_origin = event.pos[0], event.pos[1]
+                    drag_origin = math.floor(event.pos[0] \
+                                             / SCREEN_ZOOM), \
+                                  math.floor(event.pos[1] \
+                                             / SCREEN_ZOOM)
             elif event.type == pygame.MOUSEBUTTONUP:
                 if event.button == 1:
                     pass
@@ -135,12 +145,16 @@ if __name__ == '__main__':
                     # Stop dragging the screen.
                     drag_origin = None
 
+        # Get the mouse position for dragging and drawing cursors.
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+        mouse_x = math.floor(mouse_x / SCREEN_ZOOM)
+        mouse_y = math.floor(mouse_y / SCREEN_ZOOM)
+
         # Handle dragging the map.
         if drag_origin is not None:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            camera_x += ((drag_origin[0] - mouse_x) / SCREEN_ZOOM) \
+            camera_x += (drag_origin[0] - mouse_x) \
                         * SCROLL_FACTOR
-            camera_y += ((drag_origin[1] - mouse_y) / SCREEN_ZOOM) \
+            camera_y += (drag_origin[1] - mouse_y) \
                         * SCROLL_FACTOR
             drag_origin = mouse_x, mouse_y
 
@@ -153,6 +167,15 @@ if __name__ == '__main__':
         # Draw the world.
         stage.draw(virtual_screen, tileset, camera_x, camera_y)
         penguin.draw(virtual_screen, tileset, camera_x, camera_y)
+
+        # Draw the selection box under the cursor if there is one.
+        if mouse_x > MENU_WIDTH:
+            wx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
+            wy = math.floor((camera_y + mouse_y) / 16)
+            virtual_screen.blit(tileset,
+                                (wx * 16 - camera_x + MENU_WIDTH,
+                                 wy * 16 - camera_y),
+                                (128, 0, 16, 16))
 
         # Draw the menu bar.
         pygame.draw.rect(virtual_screen,
