@@ -23,7 +23,7 @@ class Stage(object):
             pytmx.TiledMap(os.path.join('maps', 'tuxville.tmx'))
         self.width = tiled_map.width
         self.height = tiled_map.height
-        self.data = [[x for x in range(self.width)]
+        self.data = [[0 for x in range(self.width)]
                      for y in range(self.height)]
         player_start_obj = \
             tiled_map.get_object_by_name('Player Start')
@@ -61,15 +61,110 @@ class Stage(object):
     def get_tile_at(self, x, y):
         return self.data[y][x]
 
+class JobSearch(object):
+    """
+    A JobSearch searches the map for untaken jobs that Penguins can do.
+
+    This class exists because the seeking algorithm uses two big arrays
+    which should not be reallocated every time the seek runs.
+    """
+    LEFT      = 0
+    UPLEFT    = 1
+    UPRIGHT   = 2
+    RIGHT     = 3
+    UP        = 4
+    DOWN      = 5
+    DOWNLEFT  = 6
+    DOWNRIGHT = 7
+
+    def __init__(self, stage, mine_jobs):
+        """Create a new JobSearch."""
+        self._stage = stage
+        self._mine_jobs = mine_jobs
+
+        self._paths = [[None for x in range(self._stage.width)]
+                       for y in range(self._stage.height)]
+        self._visited = [[False for x in range(self._stage.width)]
+                         for y in range(self._stage.height)]
+        self._staleness = [[False for x in range(self._stage.width)]
+                           for y in range(self._stage.height)]
+        self._offsets = [(-1, -1), (-1, 0), (-1, 1),
+                         ( 0, -1),          ( 0, 1),
+                         ( 1, -1), ( 1, 0), ( 1, 1)]
+        self._directions = [JobSearch.UPLEFT,
+                            JobSearch.LEFT,
+                            JobSearch.DOWNLEFT,
+                            JobSearch.UP,
+                            JobSearch.DOWN,
+                            JobSearch.UPRIGHT,
+                            JobSearch.RIGHT,
+                            JobSearch.DOWNRIGHT]
+
+    def run(self, start_x, start_y):
+        """
+        Search for jobs starting from the given position.
+
+        Arguments:
+            start_x: the initial x coordinate
+            start_y: the initial y coordinate
+
+        Returns:
+            the found job as (x, y) or None if no job was found
+        """
+        exhausted_tiles = False
+
+        # Clear the state arrays.
+        for y in range(len(self._visited)):
+            for x in range(len(self._visited[0])):
+                self._visited[y][x] = False
+                self._staleness[y][x] = False
+                self._paths[y][x] = None
+
+        # Mark the starting point as visited.
+        self._visited[start_y][start_x] = True
+
+        while not exhausted_tiles:
+            exhausted_tiles = True
+
+            for y in range(self._stage.height):
+                for x in range(self._stage.width):
+                    if self._visited[y][x] \
+                       and not self._staleness[y][x] \
+                       and self._stage.get_tile_at(x, y) not in (2, 3):
+                        # This is a non-solid tile, so
+                        # check all paths leading out from it.
+                        i = 0
+                        for xoff, yoff in self._offsets:
+                            ox = x + xoff
+                            oy = y + yoff
+                            if ox < 0 or ox >= self._stage.width \
+                               or oy < 0 or oy >= self._stage.height:
+                                pass
+                            elif not self._visited[oy][ox]:
+                                self._visited[oy][ox] = True
+                                self._paths[oy][ox] = \
+                                    self._directions[i]
+                                exhausted_tiles = False
+                                # Check if there is a job there.
+                                for job in self._mine_jobs:
+                                    if job == (ox, oy):
+                                        return job
+                            i += 1
+                        self._staleness[y][x] = True
+
+        # No job was found.
+        return None
 
 class Penguin(object):
-    def __init__(self, stage, x, y):
+    def __init__(self, stage, x, y, job_search):
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
         self.x = x
         self.y = y
         self.stage = stage
         self.timer = 10
+        self.task = None
+        self.job_search = job_search
 
     def draw(self, screen, tileset, camera_x, camera_y):
         screen.blit(tileset,
@@ -78,10 +173,15 @@ class Penguin(object):
                     (0, 0, 16, 16))
 
     def _take_turn(self):
-        target = self.stage.get_tile_at(self.x - 1, self.y - 1)
-        if target != 2:
-            self.x -= 1
-            self.y -= 1
+        # If the penguin has no job, give it one.
+        if self.task is None:
+            job = job_search.run(self.x, self.y)
+
+            if job is None:
+                print('No job found... :(')
+            else:
+                print('Found a job!')
+                self.task = job
 
     def update(self):
         self.timer = (self.timer - 1) % 10
@@ -105,12 +205,15 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_WIDTH / 2.0)
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
+    mine_jobs = []
+    job_search = JobSearch(stage, mine_jobs)
+
     penguin = Penguin(stage,
                       math.floor(player_start_x / 16),
-                      math.floor(player_start_y / 16))
+                      math.floor(player_start_y / 16),
+                      job_search)
 
     drag_origin = None
-    mine_jobs = []
 
     tools = ['cursor', 'mine', 'haul', 'stockpile']
     selected_tool = 'cursor'
