@@ -14,6 +14,7 @@ SCREEN_LOGICAL_DIMS = SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT
 SCREEN_ZOOM = 2
 SCREEN_REAL_DIMS = tuple([x * SCREEN_ZOOM for x in SCREEN_LOGICAL_DIMS])
 MENU_WIDTH = 16
+SCROLL_FACTOR = 2
 
 
 class Stage:
@@ -53,6 +54,8 @@ if __name__ == '__main__':
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
 
+    drag_origin = None
+
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
     while True:
@@ -60,9 +63,26 @@ if __name__ == '__main__':
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 3:
+                    # Begin dragging the screen.
+                    drag_origin = event.pos[0], event.pos[1]
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if event.button == 3:
+                    # Stop dragging the screen.
+                    drag_origin = None
+
+        # Handle dragging the map.
+        if drag_origin is not None:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            camera_x += ((drag_origin[0] - mouse_x) / SCREEN_ZOOM) \
+                        * SCROLL_FACTOR
+            camera_y += ((drag_origin[1] - mouse_y) / SCREEN_ZOOM) \
+                        * SCROLL_FACTOR
+            drag_origin = mouse_x, mouse_y
 
         # Draw everything.
-        virtual_screen.fill((255, 255, 255))
+        virtual_screen.fill((0, 0, 0))
         stage.draw(virtual_screen, tileset, camera_x, camera_y)
 
         # Scale and draw onto the real screen.
@@ -73,4 +93,4 @@ if __name__ == '__main__':
         pygame.display.flip();
 
         # Wait for the next frame.
-        clock.tick(25)
+        clock.tick(40)
