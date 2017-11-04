@@ -65,6 +65,14 @@ class Stage(object):
             return None
         return self.data[y][x]
 
+    def set_tile_at(self, x, y, tid):
+        assert x >= 0
+        assert x < self.width
+        assert y >= 0
+        assert y < self.height
+
+        self.data[y][x] = tid
+
 class JobSearch(object):
     """
     A JobSearch searches the map for untaken jobs that Penguins can do.
@@ -182,7 +190,7 @@ class JobSearch(object):
 
         return self._shortest_path + path_suffix
 
-    def run(self, limit=10):
+    def run_and_claim(self, limit=10):
         """
         Continue a previously started job search.
 
@@ -221,6 +229,7 @@ class JobSearch(object):
                                 for job in self._mine_jobs:
                                     if job == (ox, oy):
                                         self.busy = False
+                                        self._mine_jobs.remove(job)
                                         return self._traceback(job)
                             i += 1
                         self._staleness[y][x] = True
@@ -236,12 +245,14 @@ class Penguin(object):
     def __init__(self, stage, x, y, job_search):
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
+
         self.x = x
         self.y = y
         self.stage = stage
         self.timer = 10
         self.task = None
         self.job_search = job_search
+        self.work_left = 0
 
     def draw(self, screen, tileset, camera_x, camera_y):
         screen.blit(tileset,
@@ -250,7 +261,15 @@ class Penguin(object):
                     (0, 0, 16, 16))
 
     def _take_turn(self):
-        if self.task and len(self.task) > 0:
+        if self.work_left > 0:
+            self.work_left -= 1
+            if self.work_left == 0:
+                # Finish the work.
+                # We'll just assume it was a mining job and get rid of the mountain.
+                tx, ty = self.task[0]
+                self.stage.set_tile_at(self.x + tx, self.y + ty, 1)
+                self.task = None
+        elif self.task and len(self.task) > 0:
             xoff, yoff = self.task[0]
 
             if not tile_is_solid(
@@ -262,13 +281,13 @@ class Penguin(object):
                 self.task = self.task[1:]
             elif len(self.task) == 1:
                 # Start working on the assigned job.
-                self.task = self.task[1:]
+                self.work_left = 10
             else:
                 # bug - does not adapt if the path changes!  fix me!
-                pass
-        elif self.task and len(self.task) == 0:
-            # Start working on the assigned job.
-            print('bump!')
+                assert False, "the path was blocked for a penguin's job!"
+        #elif self.task and len(self.task) == 0:
+        #    # Start working on the assigned job.
+        #    self.work_left = 10
         else:
             if not self.job_search.busy:
                 self.job_search.start(self.x, self.y)
@@ -278,7 +297,7 @@ class Penguin(object):
 
         # If we are running a job search, process on it some.
         if self.job_search.busy:
-            job = self.job_search.run(limit=2)
+            job = self.job_search.run_and_claim(limit=2)
 
             if job is None:
                 print('No job found... :(')
