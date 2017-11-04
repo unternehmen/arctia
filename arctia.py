@@ -17,24 +17,72 @@ MENU_WIDTH = 16
 SCROLL_FACTOR = 2
 
 
-class Stage:
+class Stage(object):
     def __init__(self):
-        self.tiled_map = \
+        tiled_map = \
             pytmx.TiledMap(os.path.join('maps', 'tuxville.tmx'))
+        self.width = tiled_map.width
+        self.height = tiled_map.height
+        self.data = [[x for x in range(self.width)]
+                     for y in range(self.height)]
+        player_start_obj = \
+            tiled_map.get_object_by_name('Player Start')
+        self.player_start_x = player_start_obj.x
+        self.player_start_y = player_start_obj.y
+
+        for layer_ref in tiled_map.visible_tile_layers:
+            layer = tiled_map.layers[layer_ref]
+            for x, y, img in layer.tiles():
+                tx = math.floor(img[1][0] / 16)
+                ty = math.floor(img[1][1] / 16)
+                self.data[y][x] = ty * 16 + tx
 
     def draw(self, screen, tileset, camera_x, camera_y):
-        for layer_ref in self.tiled_map.visible_tile_layers:
-            layer = self.tiled_map.layers[layer_ref]
-            for x, y, img in layer.tiles():
-                virtual_screen.blit(tileset,
-                                    (x * 16 - camera_x + MENU_WIDTH,
-                                     y * 16 - camera_y + MENU_WIDTH),
-                                    img[1])
+        for y in range(self.height):
+            for x in range(self.width):
+                tid = self.data[y][x]
+                tx = tid % 16
+                ty = math.floor(tid / 16)
+                screen.blit(tileset,
+                            (x * 16 - camera_x + MENU_WIDTH,
+                             y * 16 - camera_y + MENU_WIDTH),
+                            (tx * 16, ty * 16, 16, 16))
 
     def get_player_start_pos(self):
-        player_start_obj = \
-            self.tiled_map.get_object_by_name('Player Start')
-        return player_start_obj.x, player_start_obj.y
+        return self.player_start_x, self.player_start_y
+
+    def get_tile_at(self, x, y):
+        return self.data[y][x]
+
+
+class Penguin(object):
+    def __init__(self, stage, x, y):
+        assert x >= 0 and x < stage.width
+        assert y >= 0 and y < stage.height
+
+        self.x = x
+        self.y = y
+        self.stage = stage
+        self.timer = 10
+
+    def draw(self, screen, tileset, camera_x, camera_y):
+        screen.blit(tileset,
+                    (self.x * 16 - camera_x + MENU_WIDTH,
+                     self.y * 16 - camera_y + MENU_WIDTH),
+                    (0, 0, 16, 16))
+
+    def _take_turn(self):
+        target = self.stage.get_tile_at(self.x - 1, self.y - 1)
+
+        if target != 2:
+            self.x -= 1
+            self.y -= 1
+
+    def update(self):
+        self.timer = (self.timer - 1) % 10
+
+        if self.timer == 0:
+            self._take_turn()
 
 
 if __name__ == '__main__':
@@ -53,8 +101,14 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_WIDTH / 2.0)
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
+    penguin = Penguin(stage,
+                      math.floor(player_start_x / 16),
+                      math.floor(player_start_y / 16))
 
     drag_origin = None
+
+    # 'cursor' | 'mine' | 'haul'
+    #tool = 'cursor'
 
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
@@ -81,9 +135,20 @@ if __name__ == '__main__':
                         * SCROLL_FACTOR
             drag_origin = mouse_x, mouse_y
 
-        # Draw everything.
+        # Update the game state.
+        penguin.update()
+
+        # Clear the screen.
         virtual_screen.fill((0, 0, 0))
+
+        # Draw the world.
         stage.draw(virtual_screen, tileset, camera_x, camera_y)
+        penguin.draw(virtual_screen, tileset, camera_x, camera_y)
+
+        # Draw the menu bar.
+        pygame.draw.rect(virtual_screen,
+                         (0, 0, 0),
+                         (0, 0, MENU_WIDTH, SCREEN_LOGICAL_HEIGHT))
 
         # Scale and draw onto the real screen.
         pygame.transform.scale(virtual_screen,
