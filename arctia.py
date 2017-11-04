@@ -17,6 +17,18 @@ SCREEN_REAL_DIMS = tuple([x * SCREEN_ZOOM for x in SCREEN_LOGICAL_DIMS])
 MENU_WIDTH = 16
 SCROLL_FACTOR = 2
 
+# The number of job search timeslices there are.
+#
+# This controls how many job searches are processed per frame,
+# since each job search only runs during a certain timeslice (e.g., 1).
+#
+# If there are less timeslices, the game will run slower but mobs will
+# be able to find jobs quicker (in game-time).
+#
+# On the other hand, If there are more slices, the game will run
+# faster but mobs will take more time to find jobs.
+NUM_OF_TIMESLICES = 4
+
 def tile_is_solid(tid):
     return tid in (2, 3, 5)
 
@@ -90,7 +102,7 @@ class JobSearch(object):
     DOWNLEFT  = 6
     DOWNRIGHT = 7
 
-    def __init__(self, stage, mine_jobs):
+    def __init__(self, stage, mine_jobs, timeslice):
         """Create a new JobSearch."""
         self.busy = False
         self._stage = stage
@@ -113,6 +125,7 @@ class JobSearch(object):
                             JobSearch.UPRIGHT,
                             JobSearch.RIGHT,
                             JobSearch.DOWNRIGHT]
+        self._timeslice = timeslice
 
     def start(self, from_x, from_y):
         """
@@ -165,7 +178,7 @@ class JobSearch(object):
         if not self.busy:
             return
 
-        self._shortest_path.insert(0, (xoff, yoff))
+        self._shortest_path.insert(0, (-xoff, -yoff))
 
     def _traceback(self, job):
         """
@@ -195,9 +208,11 @@ class JobSearch(object):
 
         return self._shortest_path + path_suffix
 
-    def run(self, limit=10):
+    def run(self, limit=10, ignore_timeslice=False):
         """
         Continue a previously started job search.
+
+        If this is not the correct timeslice, then nothing happens.
 
         Arguments:
             limit: the number of breadth descensions to try
@@ -206,6 +221,10 @@ class JobSearch(object):
             the found job as (x, y) or None if no job was found
         """
         exhausted_tiles = False
+
+        if not ignore_timeslice \
+           and current_timeslice != self._timeslice:
+            return
 
         while not exhausted_tiles and limit > 0:
             exhausted_tiles = True
@@ -237,7 +256,6 @@ class JobSearch(object):
                                        and job.location[0] == ox \
                                        and job.location[1] == oy:
                                         self.busy = False
-                                        job.reserve()
                                         return (job,
                                                 self._traceback(job))
                             i += 1
@@ -271,17 +289,23 @@ class Penguin(object):
                      self.y * 16 - camera_y),
                     (0, 0, 16, 16))
 
-    def _look_for_job(self):
+    def _look_for_job(self, ignore_timeslice=False):
         """
         Continue an in-progress job search.
+
+        Arguments:
+            ignore_timeslice: whether to search even if it is
+                not the timeslice assigned to this JobSearch
         """
         if self.job_search.busy:
-            job = self.job_search.run(limit=2)
+            job = self.job_search.run(limit=2,
+                                      ignore_timeslice=ignore_timeslice)
 
             if job:
                 # We found a job!
                 self._current_job, \
                   self._path_to_current_job = job
+                self._current_job.reserve()
 
     def _take_turn(self):
         if self.work_left > 0:
@@ -297,8 +321,10 @@ class Penguin(object):
                 self._current_job = None
                 self._path_to_current_job = None
 
+                # Jumpstart our next search to keep other penguins
+                # from doing jobs that this penguin should do.
                 self.job_search.start(self.x, self.y)
-                self._look_for_job()
+                self._look_for_job(ignore_timeslice=True)
         elif self._current_job and len(self._path_to_current_job) > 0:
             xoff, yoff = self._path_to_current_job[0]
 
@@ -322,7 +348,7 @@ class Penguin(object):
 
     def update(self):
         self.timer = (self.timer - 1) % 10
-        self._look_for_job()
+        self._look_for_job(ignore_timeslice=False)
 
         if self.timer == 0:
             self._take_turn()
@@ -344,16 +370,19 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_WIDTH / 2.0)
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
+    current_timeslice = 0
     mine_jobs = []
 
-    penguins = [Penguin(stage,
-                        math.floor(player_start_x / 16),
-                        math.floor(player_start_y / 16),
-                        JobSearch(stage, mine_jobs)),
-                Penguin(stage,
-                        math.floor(player_start_x / 16) + 1,
-                        math.floor(player_start_y / 16) - 1,
-                        JobSearch(stage, mine_jobs))]
+    penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
+    penguins = []
+    timeslice = 0
+    for x, y in penguin_offsets:
+        penguins.append(Penguin(stage,
+                                math.floor(player_start_x / 16) + x,
+                                math.floor(player_start_y / 16) + y,
+                                JobSearch(stage, mine_jobs,
+                                          timeslice=timeslice),))
+        timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
 
     drag_origin = None
 
@@ -481,4 +510,5 @@ if __name__ == '__main__':
         pygame.display.flip();
 
         # Wait for the next frame.
+        current_timeslice = (current_timeslice + 1) % NUM_OF_TIMESLICES
         clock.tick(40)
