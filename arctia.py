@@ -108,7 +108,8 @@ if __name__ == '__main__':
     drag_origin = None
 
     # 'cursor' | 'mine' | 'haul'
-    #tool = 'cursor'
+    tools = ['cursor', 'mine', 'haul']
+    selected_tool = 'cursor'
 
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
@@ -118,11 +119,19 @@ if __name__ == '__main__':
             if event.type == pygame.QUIT:
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 3:
+                mx = math.floor(event.pos[0] / SCREEN_ZOOM)
+                my = math.floor(event.pos[1] / SCREEN_ZOOM)
+                if event.button == 1:
+                    if mx < MENU_WIDTH:
+                        if my < len(tools) * 16:
+                            selected_tool = tools[math.floor(my / 16)]
+                elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = event.pos[0], event.pos[1]
             elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 3:
+                if event.button == 1:
+                    pass
+                elif event.button == 3:
                     # Stop dragging the screen.
                     drag_origin = None
 
@@ -149,6 +158,14 @@ if __name__ == '__main__':
         pygame.draw.rect(virtual_screen,
                          (0, 0, 0),
                          (0, 0, MENU_WIDTH, SCREEN_LOGICAL_HEIGHT))
+
+        for i in range(len(tools)):
+            if selected_tool == tools[i]:
+                offset_y = 32
+            else:
+                offset_y = 16
+            virtual_screen.blit(tileset, (0, i * 16),
+                                (i * 16, offset_y, 16, 16))
 
         # Scale and draw onto the real screen.
         pygame.transform.scale(virtual_screen,
