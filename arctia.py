@@ -6,6 +6,7 @@ import os
 import pytmx
 import math
 
+from job import Job
 
 # Game constants
 SCREEN_LOGICAL_WIDTH = 256
@@ -168,14 +169,18 @@ class JobSearch(object):
 
     def _traceback(self, job):
         """
-        Return the already-calculated shortest path to the found job.
+        Return the already-calculated shortest path to the found Job.
 
         Arguments:
             job:
-                The position (x, y) of the job we found.
+                The Job we found.
+
+        Returns:
+            A list of 2-tuples representing steps along the path to
+            the Job.  For example, [(1, 1), (1, 0), ...]
         """
         path_suffix = []
-        cx, cy = job
+        cx, cy = job.location
         direction = self._paths[cy][cx]
 
         while direction is not None:
@@ -190,7 +195,7 @@ class JobSearch(object):
 
         return self._shortest_path + path_suffix
 
-    def run_and_claim(self, limit=10):
+    def run(self, limit=10):
         """
         Continue a previously started job search.
 
@@ -227,10 +232,14 @@ class JobSearch(object):
                                 exhausted_tiles = False
                                 # Check if there is a job there.
                                 for job in self._mine_jobs:
-                                    if job == (ox, oy):
+                                    if not job.reserved \
+                                       and not job.done \
+                                       and job.location[0] == ox \
+                                       and job.location[1] == oy:
                                         self.busy = False
-                                        self._mine_jobs.remove(job)
-                                        return self._traceback(job)
+                                        job.reserve()
+                                        return (job,
+                                                self._traceback(job))
                             i += 1
                         self._staleness[y][x] = True
             limit -= 1
@@ -250,9 +259,11 @@ class Penguin(object):
         self.y = y
         self.stage = stage
         self.timer = 10
-        self.task = None
         self.job_search = job_search
         self.work_left = 0
+
+        self._current_job = None
+        self._path_to_current_job = None
 
     def draw(self, screen, tileset, camera_x, camera_y):
         screen.blit(tileset,
@@ -260,17 +271,36 @@ class Penguin(object):
                      self.y * 16 - camera_y),
                     (0, 0, 16, 16))
 
+    def _look_for_job(self):
+        """
+        Continue an in-progress job search.
+        """
+        if self.job_search.busy:
+            job = self.job_search.run(limit=2)
+
+            if job:
+                # We found a job!
+                self._current_job, \
+                  self._path_to_current_job = job
+
     def _take_turn(self):
         if self.work_left > 0:
             self.work_left -= 1
             if self.work_left == 0:
-                # Finish the work.
-                # We'll just assume it was a mining job and get rid of the mountain.
-                tx, ty = self.task[0]
-                self.stage.set_tile_at(self.x + tx, self.y + ty, 1)
-                self.task = None
-        elif self.task and len(self.task) > 0:
-            xoff, yoff = self.task[0]
+                # Turn the job's location's tile into floor.
+                # Note: this just assumes that it is a mining job
+                jx, jy = self._current_job.location
+                self.stage.set_tile_at(jx, jy, 1)
+
+                # Get rid of the job.
+                self._current_job.finish()
+                self._current_job = None
+                self._path_to_current_job = None
+
+                self.job_search.start(self.x, self.y)
+                self._look_for_job()
+        elif self._current_job and len(self._path_to_current_job) > 0:
+            xoff, yoff = self._path_to_current_job[0]
 
             if not tile_is_solid(
                      self.stage.get_tile_at(
@@ -278,33 +308,21 @@ class Penguin(object):
                        self.y + yoff)):
                 self.x += xoff
                 self.y += yoff
-                self.task = self.task[1:]
-            elif len(self.task) == 1:
+                self._path_to_current_job = \
+                  self._path_to_current_job[1:]
+            elif len(self._path_to_current_job) == 1:
                 # Start working on the assigned job.
                 self.work_left = 10
             else:
                 # bug - does not adapt if the path changes!  fix me!
                 assert False, "the path was blocked for a penguin's job!"
-        #elif self.task and len(self.task) == 0:
-        #    # Start working on the assigned job.
-        #    self.work_left = 10
         else:
             if not self.job_search.busy:
                 self.job_search.start(self.x, self.y)
 
     def update(self):
         self.timer = (self.timer - 1) % 10
-
-        # If we are running a job search, process on it some.
-        if self.job_search.busy:
-            job = self.job_search.run_and_claim(limit=2)
-
-            if job is None:
-                print('No job found... :(')
-            else:
-                print('Found a job!')
-                print(job)
-                self.task = job
+        self._look_for_job()
 
         if self.timer == 0:
             self._take_turn()
@@ -328,10 +346,14 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
     mine_jobs = []
 
-    penguin = Penguin(stage,
-                      math.floor(player_start_x / 16),
-                      math.floor(player_start_y / 16),
-                      JobSearch(stage, mine_jobs))
+    penguins = [Penguin(stage,
+                        math.floor(player_start_x / 16),
+                        math.floor(player_start_y / 16),
+                        JobSearch(stage, mine_jobs)),
+                Penguin(stage,
+                        math.floor(player_start_x / 16) + 1,
+                        math.floor(player_start_y / 16) - 1,
+                        JobSearch(stage, mine_jobs))]
 
     drag_origin = None
 
@@ -367,13 +389,15 @@ if __name__ == '__main__':
                             elif tid == 2:
                                 job_exists = False
                                 for job in mine_jobs:
-                                    if job[0] == tx and job[1] == ty:
+
+                                    if job.location[0] == tx \
+                                       and job.location[1] == ty:
                                         print('Job already exists')
                                         job_exists = True
                                         break
 
                                 if not job_exists:
-                                    mine_jobs.append((tx, ty))
+                                    mine_jobs.append(Job((tx, ty)))
                 elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = math.floor(event.pos[0] \
@@ -401,17 +425,26 @@ if __name__ == '__main__':
             drag_origin = mouse_x, mouse_y
 
         # Update the game state.
-        penguin.update()
+        for penguin in penguins:
+            penguin.update()
+
+        # Delete finished mining jobs.
+        for job in mine_jobs:
+            if job.done:
+                mine_jobs.remove(job)
 
         # Clear the screen.
         virtual_screen.fill((0, 0, 0))
 
         # Draw the world.
         stage.draw(virtual_screen, tileset, camera_x, camera_y)
-        penguin.draw(virtual_screen, tileset, camera_x, camera_y)
 
-        # Draw the selection box under the cursor if there is one.
-        for pos in mine_jobs:
+        for penguin in penguins:
+            penguin.draw(virtual_screen, tileset, camera_x, camera_y)
+
+        # Hilight job-designated areas.
+        for job in mine_jobs:
+            pos = job.location
             virtual_screen.blit(tileset,
                                 (pos[0] * 16 - camera_x \
                                  + MENU_WIDTH,
