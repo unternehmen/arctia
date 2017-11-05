@@ -9,6 +9,13 @@ their bags and decided to stake out a piece of the chunk to live on.
 The elders call this chunk "Arctia", and you are leading a colony
 of penguin settlers on this new territory.
 
+## Controls
+You can switch tools by clicking the menu buttons on the left.
+
+To designate areas using tools, click on tiles within the world.
+
+To scroll across the map, right-click and drag.
+
 ## Dependencies
 You need Pygame and PyTMX in order to run the game.
 
