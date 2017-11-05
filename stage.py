@@ -4,9 +4,11 @@ import math
 from config import *
 
 class Stage(object):
-    def __init__(self):
+    def __init__(self, path):
         tiled_map = \
-            pytmx.TiledMap(os.path.join('maps', 'tuxville.tmx'))
+            pytmx.TiledMap(path)
+        assert tiled_map is not None
+
         self.width = tiled_map.width
         self.height = tiled_map.height
         self.data = [[0 for x in range(self.width)]
@@ -16,7 +18,7 @@ class Stage(object):
         self.player_start_x = player_start_obj.x
         self.player_start_y = player_start_obj.y
         
-        self._entities = []
+        self.entities = []
 
         for layer_ref in tiled_map.visible_tile_layers:
             layer = tiled_map.layers[layer_ref]
@@ -58,17 +60,23 @@ class Stage(object):
                             (tx * 16, ty * 16, 16, 16))
 
         # Draw entities.
-        for ent in self._entities:
-            if ent[0] == 'rock':
+        for ent in self.entities:
+            kind, x, y = ent
+
+            if x < clip_left or x >= clip_left + clip_width \
+               or y < clip_top or y >= clip_top + clip_height:
+                continue
+
+            if kind == 'rock':
                 tx = 6
-            elif ent[0] == 'bug':
+            elif kind == 'bug':
                 tx = 7
-            elif ent[0] == 'fish':
+            elif kind == 'fish':
                 tx = 4
 
             screen.blit(tileset,
-                        (ent[1] * 16 - camera_x + MENU_WIDTH,
-                         ent[2] * 16 - camera_y),
+                        (x * 16 - camera_x + MENU_WIDTH,
+                         y * 16 - camera_y),
                         (tx * 16, 0, 16, 16))
 
     def get_player_start_pos(self):
@@ -88,6 +96,15 @@ class Stage(object):
 
         self.data[y][x] = tid
 
+    def add_entity(self, entity, x, y):
+        """
+        Add an entity to the Stage.
+
+        Arguments:
+            entity: the entity
+        """
+        self.entities.append((entity[0], x, y))
+
     def create_entity(self, kind, x, y):
         """
         Create an entity of the given kind at (x, y) in this Stage.
@@ -97,8 +114,17 @@ class Stage(object):
             x: the X coordinate of the entity
             y: the Y coordinate of the entity
         """
-        self._entities.append((kind, x, y))
+        self.add_entity((kind, 0, 0), x, y)
+
+    def delete_entity(self, entity):
+        """
+        Delete an entity from this Stage.
+
+        Arguments:
+            entity: the entity to delete
+        """
+        self.entities.remove(entity)
 
     def update(self):
-        for ent in self._entities:
+        for ent in self.entities:
             pass

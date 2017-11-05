@@ -1,5 +1,6 @@
 from config import *
 from common import *
+from job import MineJob, HaulJob
 
 class JobSearch(object):
     """
@@ -17,13 +18,13 @@ class JobSearch(object):
     DOWNLEFT  = 6
     DOWNRIGHT = 7
 
-    def __init__(self, stage, mine_jobs, timeslice, stopwatch):
+    def __init__(self, stage, jobs, timeslice, stopwatch, stockpiles):
         """
         Create a new JobSearch.
 
         Arguments:
             stage: the stage
-            mine_jobs: the list of active Jobs
+            jobs: the list of active Jobs
             timeslice: which timeslice the JobSearch activates in
             stopwatch: the global Stopwatch
 
@@ -34,7 +35,8 @@ class JobSearch(object):
 
         self.busy = False
         self._stage = stage
-        self._mine_jobs = mine_jobs
+        self._jobs = jobs
+        self._stockpiles = stockpiles
 
         self._paths = [[None for x in range(self._stage.width)]
                        for y in range(self._stage.height)]
@@ -76,6 +78,7 @@ class JobSearch(object):
         self._shortest_path = []
         self._start_x = from_x
         self._start_y = from_y
+        self._possible_haul_jobs = []
 
         # Clear the state arrays.
         for y in range(len(self._visited)):
@@ -128,7 +131,7 @@ class JobSearch(object):
             the Job.  For example, [(1, 1), (1, 0), ...]
         """
         path_suffix = []
-        cx, cy = job.location
+        cx, cy = job.locations[0]
         direction = self._paths[cy][cx]
 
         while direction is not None:
@@ -152,8 +155,8 @@ class JobSearch(object):
         Arguments:
             limit: the number of breadth descensions to try
 
-        Returns:
-            the found job as (x, y) or None if no job was found
+        Returns: the found job as (job, path_to_job), or None
+                 if no job was found
         """
         exhausted_tiles = False
 
@@ -186,19 +189,63 @@ class JobSearch(object):
                                     self._directions[i]
                                 exhausted_tiles = False
                                 # Check if there is a job there.
-                                for job in self._mine_jobs:
-                                    if not job.reserved \
-                                       and not job.done \
-                                       and job.location[0] == ox \
-                                       and job.location[1] == oy:
+                                for job in self._jobs:
+                                    if job.reserved or job.done:
+                                        continue
+
+                                    if job.locations[0][0] != ox \
+                                       or job.locations[0][1] != oy:
+                                        continue
+
+                                    if isinstance(job, MineJob):
                                         self.busy = False
                                         return (job,
                                                 self._traceback(job))
+                                    elif isinstance(job, HaulJob):
+                                        self._possible_haul_jobs.append(job)
                             i += 1
                         self._staleness[y][x] = True
             limit -= 1
 
         if exhausted_tiles:
+            # If we have possible haul jobs, check which ones are
+            # still available and see if we have a route to a stockpile
+            # that will accept the goods.
+            for job in self._possible_haul_jobs:
+                # If the job was taken during our search, skip it.
+                if job.reserved or job.done:
+                    continue
+
+                # Find a stockpile which will accept the goods.
+                kind, _, _ = job.entity
+                for pile in self._stockpiles:
+                    # If the good is not accepted, find a different
+                    # stockpile.
+                    if kind not in pile.accepted_kinds:
+                        continue
+
+                    # If the pile is full, don't bother with it.
+                    if pile.full:
+                        continue
+
+                    for y in range(pile.y, pile.y + pile.h):
+                        for x in range(pile.x, pile.x + pile.w):
+                            if self._visited[y][x]:
+                                # We can reach it unless something
+                                # has blocked our way.  In any case,
+                                # we'll take the job.
+                                slot_location = pile.reserve_slot()
+                                job.slot_location = slot_location
+                                self.busy = False
+                                return (job, self._traceback(job))
+                    #if self._current_job:
+                    #    break
+                #if self._current_job:
+                #    break
+
+
+            # Since we've exhausted the search, flag this JobSearch
+            # as no longer busy.
             self.busy = False
 
         # No job was found.
