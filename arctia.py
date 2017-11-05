@@ -30,7 +30,7 @@ class JobSearch(object):
     DOWNLEFT  = 6
     DOWNRIGHT = 7
 
-    def __init__(self, stage, mine_jobs, timeslice):
+    def __init__(self, stage, mine_jobs, timeslice, stopwatch):
         """
         Create a new JobSearch.
 
@@ -38,6 +38,7 @@ class JobSearch(object):
             stage: the stage
             mine_jobs: the list of active Jobs
             timeslice: which timeslice the JobSearch activates in
+            stopwatch: the global Stopwatch
 
         Returns:
             the new JobSearch
@@ -54,18 +55,25 @@ class JobSearch(object):
                          for y in range(self._stage.height)]
         self._staleness = [[False for x in range(self._stage.width)]
                            for y in range(self._stage.height)]
-        self._offsets = [(-1, -1), (-1, 0), (-1, 1),
-                         ( 0, -1),          ( 0, 1),
-                         ( 1, -1), ( 1, 0), ( 1, 1)]
-        self._directions = [JobSearch.UPLEFT,
-                            JobSearch.LEFT,
-                            JobSearch.DOWNLEFT,
-                            JobSearch.UP,
+        self._offsets = [( 0, -1),
+                         ( 0, 1),
+                         (-1, 0),
+                         ( 1, 0),
+                         (-1, -1),
+                         (-1, 1),
+                         ( 1, -1),
+                         ( 1, 1)]
+        self._directions = [JobSearch.UP,
                             JobSearch.DOWN,
-                            JobSearch.UPRIGHT,
+                            JobSearch.LEFT,
                             JobSearch.RIGHT,
+                            JobSearch.UPLEFT,
+                            JobSearch.DOWNLEFT,
+                            JobSearch.UPRIGHT,
                             JobSearch.DOWNRIGHT]
         self._timeslice = timeslice
+        self._stopwatch = stopwatch
+        self._cookie = stopwatch.start()
 
     def start(self, from_x, from_y):
         """
@@ -163,7 +171,8 @@ class JobSearch(object):
         exhausted_tiles = False
 
         if not ignore_timeslice \
-           and current_timeslice != self._timeslice:
+           and self._stopwatch.measure(self._cookie) \
+               % NUM_OF_TIMESLICES != self._timeslice:
             return
 
         while not exhausted_tiles and limit > 0:
@@ -321,7 +330,6 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_WIDTH / 2.0)
     camera_y = player_start_y + 8 \
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
-    current_timeslice = 0
     mine_jobs = []
     stopwatch = Stopwatch()
 
@@ -333,7 +341,7 @@ if __name__ == '__main__':
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
                                 JobSearch(stage, mine_jobs,
-                                          timeslice=timeslice),
+                                          timeslice, stopwatch),
                                 stopwatch))
         timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
 
@@ -463,6 +471,5 @@ if __name__ == '__main__':
         pygame.display.flip();
 
         # Wait for the next frame.
-        current_timeslice = (current_timeslice + 1) % NUM_OF_TIMESLICES
         stopwatch.tick()
         clock.tick(40)
