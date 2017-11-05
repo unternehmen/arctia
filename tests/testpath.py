@@ -25,6 +25,16 @@ def test_path_is_walkable_0():
     assert result is not None
     _ensure_path_is_legal(stage, start, result)
 
+def test_path_is_walkable_0_reverse():
+    stage = Stage(os.path.join('maps', 'test-river.tmx'))
+    finder = PathFinder(stage)
+    start = 6, 1
+    finder.start(start[0], start[1], lambda pos: pos == (27, 31))
+    result = finder.run(-1)
+
+    assert result is not None
+    _ensure_path_is_legal(stage, start, result)
+
 def test_path_is_walkable_1():
     stage = Stage(os.path.join('maps', 'test-river.tmx'))
     finder = PathFinder(stage)

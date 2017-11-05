@@ -16,14 +16,16 @@ class PathFinder(object):
     JUST_VISITED    = 1
     ALREADY_VISITED = 2
     
-    LEFT      = 0
-    UPLEFT    = 1
-    UPRIGHT   = 2
-    RIGHT     = 3
-    UP        = 4
-    DOWN      = 5
-    DOWNLEFT  = 6
-    DOWNRIGHT = 7
+    DIRECTIONS = {
+        'up':        (0, -1),
+        'down':      (0, 1),
+        'left':      (-1, 0),
+        'right':     (1, 0),
+        'upleft':    (-1, -1),
+        'upright':   (1, -1),
+        'downleft':  (-1, 1),
+        'downright': (1, 1),
+    }
 
     def __init__(self, stage):
         """
@@ -43,16 +45,6 @@ class PathFinder(object):
                            for y in range(stage.height)]
         self._staleness = [[False for x in range(stage.width)]
                            for y in range(stage.height)]
-        self._directions = {
-            PathFinder.UP:        (0, -1),
-            PathFinder.DOWN:      (0, 1),
-            PathFinder.LEFT:      (-1, 0),
-            PathFinder.RIGHT:     (1, 0),
-            PathFinder.UPLEFT:    (-1, -1),
-            PathFinder.UPRIGHT:   (1, -1),
-            PathFinder.DOWNLEFT:  (-1, 1),
-            PathFinder.DOWNRIGHT: (1, 1),
-        }
 
     def start(self, from_x, from_y, goal_pred):
         """
@@ -123,7 +115,7 @@ class PathFinder(object):
         dir = self._paths[y][x]
 
         while dir:
-            xoff, yoff = self._directions[dir]
+            xoff, yoff = PathFinder.DIRECTIONS[dir]
             shortest_path.insert(0, (xoff, yoff))
             x -= xoff
             y -= yoff
@@ -159,7 +151,7 @@ class PathFinder(object):
                        or tile_is_solid(self._stage.get_tile_at(x, y)):
                         continue
 
-                    for dir, offset in self._directions.items():
+                    for dir, offset in PathFinder.DIRECTIONS.items():
                         xoff, yoff = offset
                         nx = x + xoff
                         ny = y + yoff
