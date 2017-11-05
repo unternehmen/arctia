@@ -183,7 +183,8 @@ class PathFinder(object):
                     if self._visited[y][x] == PathFinder.JUST_VISITED:
                         self._visited[y][x] = PathFinder.ALREADY_VISITED
 
-            limit -= 1
+            if limit > 0:
+                limit -= 1
 
         if exhausted_tiles:
             self.busy = False
