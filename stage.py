@@ -47,9 +47,13 @@ class Stage(object):
     def get_tile_at(self, x, y):
         if x < 0 or x >= self.width or y < 0 or y >= self.height:
             return None
+
         return self.data[y][x]
 
     def set_tile_at(self, x, y, tid):
         assert x >= 0
         assert x < self.width
         assert y >= 0
+        assert y < self.height
+
+        self.data[y][x] = tid

@@ -9,6 +9,7 @@ import math
 from config import *
 from job import Job
 from stage import Stage
+from stopwatch import Stopwatch
 
 def tile_is_solid(tid):
     return tid in (2, 3, 5)
@@ -208,7 +209,7 @@ class JobSearch(object):
         return None
 
 class Penguin(object):
-    def __init__(self, stage, x, y, job_search):
+    def __init__(self, stage, x, y, job_search, stopwatch):
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
 
@@ -218,6 +219,8 @@ class Penguin(object):
         self.timer = 10
         self.job_search = job_search
         self.work_left = 0
+        self._stopwatch = stopwatch
+        self._cookie = stopwatch.start()
 
         self._current_job = None
         self._path_to_current_job = None
@@ -294,10 +297,10 @@ class Penguin(object):
 
         This should be called every frame before drawing.
         """
-        self.timer = (self.timer - 1) % 10
         self._look_for_job(ignore_timeslice=False)
 
-        if self.timer == 0:
+        if self._stopwatch.measure(self._cookie) == 10:
+            self._cookie = self._stopwatch.start()
             self._take_turn()
 
 
@@ -320,6 +323,7 @@ if __name__ == '__main__':
                - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
     current_timeslice = 0
     mine_jobs = []
+    stopwatch = Stopwatch()
 
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     penguins = []
@@ -329,7 +333,8 @@ if __name__ == '__main__':
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
                                 JobSearch(stage, mine_jobs,
-                                          timeslice=timeslice),))
+                                          timeslice=timeslice),
+                                stopwatch))
         timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
 
     drag_origin = None
@@ -459,4 +464,5 @@ if __name__ == '__main__':
 
         # Wait for the next frame.
         current_timeslice = (current_timeslice + 1) % NUM_OF_TIMESLICES
+        stopwatch.tick()
         clock.tick(40)
