@@ -103,7 +103,19 @@ class JobSearch(object):
     DOWNRIGHT = 7
 
     def __init__(self, stage, mine_jobs, timeslice):
-        """Create a new JobSearch."""
+        """
+        Create a new JobSearch.
+
+        Arguments:
+            stage: the stage
+            mine_jobs: the list of active Jobs
+            timeslice: which timeslice the JobSearch activates in
+
+        Returns:
+            the new JobSearch
+        """
+        assert timeslice >= 0 and timeslice < NUM_OF_TIMESLICES
+
         self.busy = False
         self._stage = stage
         self._mine_jobs = mine_jobs
@@ -308,6 +320,9 @@ class Penguin(object):
                 self._current_job.reserve()
 
     def _take_turn(self):
+        """
+        Make the Penguin take a turn.
+        """
         if self.work_left > 0:
             self.work_left -= 1
             if self.work_left == 0:
@@ -347,6 +362,11 @@ class Penguin(object):
                 self.job_search.start(self.x, self.y)
 
     def update(self):
+        """
+        Update the state of the Penguin.
+
+        This should be called every frame before drawing.
+        """
         self.timer = (self.timer - 1) % 10
         self._look_for_job(ignore_timeslice=False)
 
