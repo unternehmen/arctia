@@ -234,7 +234,7 @@ class Penguin(object):
 
         Arguments:
             ignore_timeslice: whether to search even if it is
-                not the timeslice assigned to this JobSearch
+                not the timeslice assigned to this penguin's JobSearch
         """
         if self.job_search.busy:
             job = self.job_search.run(limit=2,
