@@ -15,19 +15,35 @@ class Stage(object):
             tiled_map.get_object_by_name('Player Start')
         self.player_start_x = player_start_obj.x
         self.player_start_y = player_start_obj.y
+        
+        self._entities = []
 
         for layer_ref in tiled_map.visible_tile_layers:
             layer = tiled_map.layers[layer_ref]
             for x, y, img in layer.tiles():
                 tx = math.floor(img[1][0] / 16)
                 ty = math.floor(img[1][1] / 16)
-                self.data[y][x] = ty * 16 + tx
+                tid = ty * 16 + tx
+
+                # Some tiles add an entity instead of a tile.
+                if tid == 4:
+                    self.create_entity('fish', x, y)
+                    tid = 1
+                elif tid == 6:
+                    self.create_entity('rock', x, y)
+                    tid = 1
+                elif tid == 7:
+                    self.create_entity('bug', x, y)
+                    tid = 1
+
+                self.data[y][x] = tid
 
     def draw(self, screen, tileset, camera_x, camera_y):
         clip_left = math.floor(camera_x / 16)
         clip_top = math.floor(camera_y / 16)
         clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
         clip_height = math.floor(SCREEN_LOGICAL_HEIGHT / 16 + 1)
+
         for y in range(clip_top, clip_top + clip_height):
             for x in range(clip_left, clip_left + clip_width):
                 if x < 0 or x >= self.width \
@@ -40,6 +56,20 @@ class Stage(object):
                             (x * 16 - camera_x + MENU_WIDTH,
                              y * 16 - camera_y),
                             (tx * 16, ty * 16, 16, 16))
+
+        # Draw entities.
+        for ent in self._entities:
+            if ent[0] == 'rock':
+                tx = 6
+            elif ent[0] == 'bug':
+                tx = 7
+            elif ent[0] == 'fish':
+                tx = 4
+
+            screen.blit(tileset,
+                        (ent[1] * 16 - camera_x + MENU_WIDTH,
+                         ent[2] * 16 - camera_y),
+                        (tx * 16, 0, 16, 16))
 
     def get_player_start_pos(self):
         return self.player_start_x, self.player_start_y
@@ -57,3 +87,18 @@ class Stage(object):
         assert y < self.height
 
         self.data[y][x] = tid
+
+    def create_entity(self, kind, x, y):
+        """
+        Create an entity of the given kind at (x, y) in this Stage.
+
+        Arguments:
+            kind: the kind of entity (bug | stone | fish)
+            x: the X coordinate of the entity
+            y: the Y coordinate of the entity
+        """
+        self._entities.append((kind, x, y))
+
+    def update(self):
+        for ent in self._entities:
+            pass

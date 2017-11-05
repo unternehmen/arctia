@@ -110,6 +110,9 @@ class Penguin(object):
             self._take_turn()
 
 
+
+
+
 if __name__ == '__main__':
     pygame.init()
     atexit.register(pygame.quit)
@@ -146,6 +149,16 @@ if __name__ == '__main__':
 
     tools = ['cursor', 'mine', 'haul', 'stockpile']
     selected_tool = 'cursor'
+
+    stockpile = (penguins[0].x, penguins[0].y - 8, 4, 4)
+    def draw_stockpile(stockpile, screen, tileset, camera_x, camera_y):
+        for y in range(stockpile[1], stockpile[1] + stockpile[3]):
+            for x in range(stockpile[0], stockpile[0] + stockpile[2]):
+                virtual_screen.blit(tileset,
+                                    (x * 16 - camera_x \
+                                     + MENU_WIDTH,
+                                     y * 16 - camera_y),
+                                    (176, 0, 16, 16))
 
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
@@ -228,6 +241,9 @@ if __name__ == '__main__':
 
         for penguin in penguins:
             penguin.draw(virtual_screen, tileset, camera_x, camera_y)
+
+        # Draw stockpiles.
+        draw_stockpile(stockpile, virtual_screen, tileset, camera_x, camera_y)
 
         # Hilight job-designated areas.
         for job in mine_jobs:
