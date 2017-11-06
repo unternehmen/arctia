@@ -5,6 +5,7 @@ import sys
 import os
 import pytmx
 import math
+from astar import astar
 
 from config import *
 from common import *
@@ -12,7 +13,6 @@ from job import Job, HaulJob, MineJob, DropJob
 from stage import Stage
 from stopwatch import Stopwatch
 from jobsearch import JobSearch
-from path import PathFinder
 
 
 class Penguin(object):
@@ -145,9 +145,7 @@ class Penguin(object):
 
                 # Get a path to the stockpile.
                 target = self._current_job.slot_location
-                pf = PathFinder(self._stage)
-                pf.start(self.x, self.y, lambda pos: pos == target)
-                result = pf.run(-1)
+                result = astar(self._stage, (self.x, self.y), target)
 
                 if result:
                     self._current_job = DropJob(self._current_job,
