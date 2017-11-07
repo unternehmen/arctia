@@ -101,7 +101,12 @@ class Penguin(object):
                     assert False, "the path was blocked for a penguin's job!"
         elif isinstance(self._current_job, DropJob):
             if len(self._path_to_current_job) > 0:
-                xoff, yoff = self._path_to_current_job[0]
+
+                xoff, yoff = \
+                  (self._path_to_current_job[0][0] - self.x,
+                   self._path_to_current_job[0][1] - self.y)
+                assert -1 <= xoff <= 1
+                assert -1 <= yoff <= 1
 
                 if not tile_is_solid(
                          self._stage.get_tile_at(

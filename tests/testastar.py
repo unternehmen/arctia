@@ -38,3 +38,9 @@ def test_path_correct_results_0():
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
     path = astar(stage, (50, 50), (50, 51))
     assert path is not None
+
+def test_path_returns_endpoints():
+    stage = Stage(os.path.join('maps', 'tuxville.tmx'))
+    path = astar(stage, (50, 50), (50, 51))
+    assert path[0] == (50, 50)
+    assert path[-1] == (50, 51)

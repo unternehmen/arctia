@@ -27,6 +27,21 @@ def _reconstruct_path(previous, current):
 
 
 def astar(stage, start, end):
+    """
+    Quickly find a path from one point to another on a stage.
+
+    This code is adapted from the pseudocode at:
+
+        <https://en.wikipedia.org/wiki/A*_search_algorithm>
+
+    Arguments:
+        stage: the Stage
+        start: the starting coordinates, e.g., (0, 0)
+        end: the ending coordinates, e.g., (2, 2)
+
+    Returns: a list of coordinates for each step in the path including
+             both endpoints, e.g., [(0, 0), (1, 1), (2, 2)]
+    """
     openset = [(_calc_distance(start, end), start)]
     closedset = set()
     previous = _2d_constant_array(stage.width, stage.height, None)
