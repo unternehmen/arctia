@@ -71,34 +71,70 @@ class PartitionSystem(object):
 
 
 class Penguin(object):
+    """
+    A Penguin is a unit that follows the player's orders.
+    """
     def __init__(self, ident, stage, x, y, jobs, stopwatch, stockpiles):
+        """
+        Create a new Penguin.
+
+        Arguments:
+            ident: an identification number
+            stage: the Stage the penguin exists in
+            x: the x coordinate of the penguin
+            y: the y coordinate of the penguin
+            jobs: the global list of Jobs
+            stopwatch: the global Stopwatch
+            stockpiles: the global list of Stockpiles
+
+        Returns: a new Penguin
+        """
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
 
+        ## Main data
+        # The penguin's identification number (used for debugging)
         self.ident = ident
+
+        # The penguin's location
         self.x = x
         self.y = y
-        self._stage = stage
-        self.timer = 10
-        self.work_left = 0
-        self._jobs = jobs
-        self._held_entity = None
-        self._stopwatch = stopwatch
-        self._cookie = stopwatch.start()
-        self._stockpiles = stockpiles
 
         # The partition of the stage that this penguin can reach
         self.partition = None
 
-        #stage.register_tile_change_listener(self)
+        # Stopwatch cookie for scheduling the penguin's turns
+        self._cookie = stopwatch.start()
 
+        ## Job data
+        # Amount of work left (in turns) for the current job
+        self._work_left = 0
+
+        # Entity held by the penguin for a drop-job
+        self._held_entity = None
+
+        # The penguin's current job
         self._current_job = None
+
+        # The path to the penguin's current job
         self._path_to_current_job = None
 
-    def tile_changed(self, coords):
-        pass
+        ## External data
+        self._stage = stage
+        self._stopwatch = stopwatch
+        self._stockpiles = stockpiles
+        self._jobs = jobs
 
     def draw(self, screen, tileset, camera_x, camera_y):
+        """
+        Draw the Penguin onto a screen or surface.
+
+        Arguments:
+            screen: the Pygame screen or surface
+            tileset: the tileset to use
+            camera_x: the x coordinate of the camera
+            camera_y: the y coordinate of the camera
+        """
         screen.blit(tileset,
                     (self.x * 16 - camera_x + MENU_WIDTH,
                      self.y * 16 - camera_y),
@@ -166,6 +202,7 @@ class Penguin(object):
         Make the Penguin take a turn.
         """
         if not self._current_job:
+            # We have no job, so do nothing on our turn.
             pass
         elif (len(self._path_to_current_job) > 0 \
             and not isinstance(self._current_job, MineJob)) \
