@@ -1,7 +1,6 @@
 ## What is Arctia?
-Arctia is a weekend-long burglary of the basic features of Dwarf Fortress
-and Rimworld.  I wrote Arctia for practice, for fun, and as a tribute
-to the game genre.
+Arctia is a small game in the same genre as Dwarf Fortress and Rimworld.
+I wrote Arctia for practice, for fun, and as a tribute to the game genre.
 
 Tux and his friends were surprised when a huge ice chunk drifted
 into the nearby sea.  The chunk was so huge that some penguins packed
