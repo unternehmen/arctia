@@ -386,6 +386,7 @@ if __name__ == '__main__':
                 if event.button == 1:
                     if block_origin:
                         ox, oy = block_origin
+                        block_origin = None
                         tx = math.floor((camera_x + mx
                                          - MENU_WIDTH)
                                         / 16)
@@ -465,13 +466,41 @@ if __name__ == '__main__':
                                 (160, 0, 16, 16))
 
         # Draw the selection box under the cursor if there is one.
-        if mouse_x > MENU_WIDTH:
+        if not block_origin and mouse_x > MENU_WIDTH:
             wx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
             wy = math.floor((camera_y + mouse_y) / 16)
             virtual_screen.blit(tileset,
                                 (wx * 16 - camera_x + MENU_WIDTH,
                                  wy * 16 - camera_y),
                                 (128, 0, 16, 16))
+
+        # Draw the designation rectangle if we are drawing a region.
+        if block_origin:
+            ox, oy = block_origin
+            tx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
+            ty = math.floor((camera_y + mouse_y) / 16)
+
+            left = min((tx, ox))
+            right = max((tx, ox))
+            top = min((ty, oy))
+            bottom = max((ty, oy))
+
+            virtual_screen.blit(tileset,
+                                (left * 16 - camera_x + MENU_WIDTH,
+                                 top * 16 - camera_y),
+                                (128, 0, 8, 8))
+            virtual_screen.blit(tileset,
+                                (left * 16 - camera_x + MENU_WIDTH,
+                                 bottom * 16 - camera_y + 8),
+                                (128, 8, 8, 8))
+            virtual_screen.blit(tileset,
+                                (right * 16 - camera_x + MENU_WIDTH + 8,
+                                 top * 16 - camera_y),
+                                (136, 0, 8, 8))
+            virtual_screen.blit(tileset,
+                                (right * 16 - camera_x + MENU_WIDTH + 8,
+                                 bottom * 16 - camera_y + 8),
+                                (136, 8, 8, 8))
 
         # Draw the menu bar.
         pygame.draw.rect(virtual_screen,
