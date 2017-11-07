@@ -23,33 +23,33 @@ class PartitionSystem(object):
 
         stage.register_tile_change_listener(self)
 
-        self.update()
+        self.refresh()
 
     def tile_changed(self, prev_id, cur_id, coords):
         x, y = coords
 
-        # Determine which mobs need partition updates.
-        mobs_to_update = []
+        # Determine which mobs need partition refreshs.
+        mobs_to_refresh = []
 
         for mob in self._mobs:
-            need_update = False
+            need_refresh = False
             for dy in (-1, 0, 1):
                 for dx in (-1, 0, 1):
                     ox = mob.x + dx
                     oy = mob.y + dy
 
                     if mob.partition[oy][ox]:
-                        need_update = True
+                        need_refresh = True
                         break
-                if need_update:
+                if need_refresh:
                     break
-            if need_update:
-                mobs_to_update.append(mob)
+            if need_refresh:
+                mobs_to_refresh.append(mob)
 
         # Update partitions on mobs which need it.
-        self._update_partial(mobs_to_update)
+        self._refresh_partial(mobs_to_refresh)
 
-    def _update_partial(self, mobs):
+    def _refresh_partial(self, mobs):
         # This currently assumes that all mobs have
         # the same movement rules!
         parts = []
@@ -66,8 +66,8 @@ class PartitionSystem(object):
                 mob.partition = part
                 parts.append(part)
 
-    def update(self):
-        self._update_partial(self._mobs)
+    def refresh(self):
+        self._refresh_partial(self._mobs)
 
 
 class Penguin(object):
