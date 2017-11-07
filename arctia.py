@@ -319,6 +319,7 @@ if __name__ == '__main__':
     partition_system = PartitionSystem(stage, penguins)
 
     drag_origin = None
+    block_origin = None
 
     tools = ['cursor', 'mine', 'haul', 'stockpile']
     selected_tool = 'cursor'
@@ -372,21 +373,7 @@ if __name__ == '__main__':
                                              - MENU_WIDTH)
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
-                            tid = stage.get_tile_at(tx, ty)
-
-                            if tid is None:
-                                pass
-                            elif tid == 2:
-                                job_exists = False
-                                for job in jobs:
-
-                                    if job.locations[0][0] == tx \
-                                       and job.locations[0][1] == ty:
-                                        job_exists = True
-                                        break
-
-                                if not job_exists:
-                                    jobs.append(MineJob((tx, ty)))
+                            block_origin = tx, ty
                 elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = math.floor(event.pos[0] \
@@ -394,8 +381,41 @@ if __name__ == '__main__':
                                   math.floor(event.pos[1] \
                                              / SCREEN_ZOOM)
             elif event.type == pygame.MOUSEBUTTONUP:
+                mx = math.floor(event.pos[0] / SCREEN_ZOOM)
+                my = math.floor(event.pos[1] / SCREEN_ZOOM)
                 if event.button == 1:
-                    pass
+                    if block_origin:
+                        ox, oy = block_origin
+                        tx = math.floor((camera_x + mx
+                                         - MENU_WIDTH)
+                                        / 16)
+                        ty = math.floor((camera_y + my) / 16)
+
+                        left = min((tx, ox))
+                        right = max((tx, ox))
+                        top = min((ty, oy))
+                        bottom = max((ty, oy))
+
+                        print('left: %d  right: %d  top: %d  bottom: %d' % (left, right, top, bottom))
+
+                        for y in range(top, bottom + 1):
+                            for x in range(left, right + 1):
+                                # for each tile in the block, do the following:
+                                tid = stage.get_tile_at(x, y)
+
+                                if tid is None:
+                                    pass
+                                elif tid == 2:
+                                    job_exists = False
+                                    for job in jobs:
+        
+                                        if job.locations[0][0] == x \
+                                           and job.locations[0][1] == y:
+                                            job_exists = True
+                                            break
+
+                                    if not job_exists:
+                                        jobs.append(MineJob((x, y)))
                 elif event.button == 3:
                     # Stop dragging the screen.
                     drag_origin = None
