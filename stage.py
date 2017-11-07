@@ -18,6 +18,8 @@ class Stage(object):
         self.player_start_x = player_start_obj.x
         self.player_start_y = player_start_obj.y
         
+        self._tile_change_listeners = []
+
         self.entities = []
 
         for layer_ref in tiled_map.visible_tile_layers:
@@ -39,6 +41,9 @@ class Stage(object):
                     tid = 1
 
                 self.data[y][x] = tid
+
+    def register_tile_change_listener(self, listener):
+        self._tile_change_listeners.append(listener)
 
     def draw(self, screen, tileset, camera_x, camera_y):
         clip_left = math.floor(camera_x / 16)
@@ -94,7 +99,13 @@ class Stage(object):
         assert y >= 0
         assert y < self.height
 
+        prev_tid = self.data[y][x]
+        cur_tid = tid
+
         self.data[y][x] = tid
+
+        for listener in self._tile_change_listeners:
+            listener.tile_changed(prev_tid, cur_tid, (x, y))
 
     def add_entity(self, entity, x, y):
         """

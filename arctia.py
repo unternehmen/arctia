@@ -5,33 +5,96 @@ import sys
 import os
 import pytmx
 import math
-from astar import astar
 
 from config import *
 from common import *
 from job import Job, HaulJob, MineJob, DropJob
 from stage import Stage
 from stopwatch import Stopwatch
-from jobsearch import JobSearch
+from astar import astar
+from partition import partition
+
+class PartitionSystem(object):
+    def __init__(self, stage, mobs):
+        self._mobs = mobs
+        self._stage = stage
+
+        stage.register_tile_change_listener(self)
+
+        self.update()
+
+    def tile_changed(self, prev_id, cur_id, coords):
+        x, y = coords
+
+        # Determine which mobs need partition updates.
+        mobs_to_update = []
+
+        for mob in self._mobs:
+            need_update = False
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ox = mob.x + dx
+                    oy = mob.y + dy
+
+                    if mob.partition[oy][ox]:
+                        need_update = True
+                        break
+                if need_update:
+                    break
+            if need_update:
+                mobs_to_update.append(mob)
+
+        # Update partitions on mobs which need it.
+        self._update_partial(mobs_to_update)
+
+    def _update_partial(self, mobs):
+        # This currently assumes that all mobs have
+        # the same movement rules!
+        parts = []
+        for mob in mobs:
+            mob.partition = None
+
+            for part in parts:
+                if part[mob.y][mob.x]:
+                    mob.partition = part
+                    break
+
+            if not mob.partition:
+                part = partition(stage, (mob.x, mob.y))
+                mob.partition = part
+                parts.append(part)
+
+    def update(self):
+        self._update_partial(self._mobs)
 
 
 class Penguin(object):
-    def __init__(self, stage, x, y, job_search, stopwatch):
+    def __init__(self, ident, stage, x, y, jobs, stopwatch, stockpiles):
         assert x >= 0 and x < stage.width
         assert y >= 0 and y < stage.height
 
+        self.ident = ident
         self.x = x
         self.y = y
         self._stage = stage
         self.timer = 10
-        self.job_search = job_search
         self.work_left = 0
+        self._jobs = jobs
         self._held_entity = None
         self._stopwatch = stopwatch
         self._cookie = stopwatch.start()
+        self._stockpiles = stockpiles
+
+        # The partition of the stage that this penguin can reach
+        self.partition = None
+
+        #stage.register_tile_change_listener(self)
 
         self._current_job = None
         self._path_to_current_job = None
+
+    def tile_changed(self, coords):
+        pass
 
     def draw(self, screen, tileset, camera_x, camera_y):
         screen.blit(tileset,
@@ -39,127 +102,127 @@ class Penguin(object):
                      self.y * 16 - camera_y),
                     (0, 0, 16, 16))
 
-    def _look_for_job(self, ignore_timeslice=False):
+    def _look_for_job(self):
         """
-        Continue an in-progress job search.
-
-        Arguments:
-            ignore_timeslice: whether to search even if it is
-                not the timeslice assigned to this penguin's JobSearch
+        Find a job to do.
         """
-        if self.job_search.busy:
-            job = self.job_search.run(limit=2,
-                                      ignore_timeslice=ignore_timeslice)
+        # Find a mining job first.
+        for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
+            x, y = job.locations[0]
 
-            if job:
-                # We found a job!
-                self._current_job, \
-                  self._path_to_current_job = job
-                self._current_job.reserve()
+            if self.partition[y][x]:
+                if job.reserved or job.done:
+                    continue
+
+                path = astar(self._stage,
+                             (self.x, self.y),
+                             job.locations[0])
+                assert path
+
+                job.reserve()
+                self._current_job = job
+                self._path_to_current_job = path[1:]
+                self._work_left = 10
+                break
+
+        if self._current_job:
+            return
+
+        # Otherwise, find a hauling job.
+        for job in filter(lambda j: isinstance(j, HaulJob), self._jobs):
+            x, y = job.locations[0]
+
+            if self.partition[y][x]:
+                if job.reserved or job.done:
+                    continue
+
+                # Ensure that there is a stockpile we can haul to.
+                found_stockpile = None
+                for stock in self._stockpiles:
+                    if self.partition[stock.y][stock.x]:
+                        if job.entity[0] in stock.accepted_kinds:
+                            found_stockpile = stock
+                            break
+
+                if found_stockpile and not found_stockpile.full:
+                    slot = found_stockpile.reserve_slot()
+
+                    job.slot_location = slot
+
+                    path = astar(self._stage,
+                                 (self.x, self.y),
+                                 job.locations[0])
+                    assert path
+
+                    job.reserve()
+                    self._current_job = job
+                    self._path_to_current_job = path[1:]
+                    break
 
     def _take_turn(self):
         """
         Make the Penguin take a turn.
         """
-        if self._current_job is None:
-            if not self.job_search.busy:
-                self.job_search.start(self.x, self.y)
-        elif isinstance(self._current_job, MineJob):
-            if self.work_left > 0:
-                self.work_left -= 1
-                if self.work_left == 0:
-                    # Turn the job's location's tile into floor.
-                    # Note: this just assumes that it is a mining job
-                    jx, jy = self._current_job.locations[0]
-                    self._stage.set_tile_at(jx, jy, 1)
+        if not self._current_job:
+            pass
+        elif (len(self._path_to_current_job) > 0 \
+            and not isinstance(self._current_job, MineJob)) \
+           or (len(self._path_to_current_job) > 1 \
+               and isinstance(self._current_job, MineJob)):
+            # Step toward the job.
+            xoff, yoff = \
+              (self._path_to_current_job[0][0] - self.x,
+               self._path_to_current_job[0][1] - self.y)
+            assert -1 <= xoff <= 1
+            assert -1 <= yoff <= 1
 
-                    # Get rid of the job.
-                    self._current_job.finish()
-                    self._current_job = None
-                    self._path_to_current_job = None
-
-                    # Jumpstart our next search to keep other penguins
-                    # from doing jobs that this penguin should do.
-                    self.job_search.start(self.x, self.y)
-                    self._look_for_job(ignore_timeslice=True)
-            elif len(self._path_to_current_job) > 0:
-                xoff, yoff = self._path_to_current_job[0]
-
-                if not tile_is_solid(
-                         self._stage.get_tile_at(
-                           self.x + xoff,
-                           self.y + yoff)):
-                    self.x += xoff
-                    self.y += yoff
-                    self._path_to_current_job = \
-                      self._path_to_current_job[1:]
-                elif len(self._path_to_current_job) == 1:
-                    # Start working on the assigned job.
-                    self.work_left = 10
-                else:
-                    # bug - does not adapt if the path changes!  fix me!
-                    assert False, "the path was blocked for a penguin's job!"
-        elif isinstance(self._current_job, DropJob):
-            if len(self._path_to_current_job) > 0:
-
-                xoff, yoff = \
-                  (self._path_to_current_job[0][0] - self.x,
-                   self._path_to_current_job[0][1] - self.y)
-                assert -1 <= xoff <= 1
-                assert -1 <= yoff <= 1
-
-                if not tile_is_solid(
-                         self._stage.get_tile_at(
-                           self.x + xoff,
-                           self.y + yoff)):
-                    self.x += xoff
-                    self.y += yoff
-                    self._path_to_current_job = \
-                      self._path_to_current_job[1:]
-                else:
-                    # bug - does not adapt if the path changes!  fix me!
-                    assert False, "the path was blocked " \
-                                  + "for a penguin's drop-job! (fixme)"
+            if not tile_is_solid(
+                     self._stage.get_tile_at(
+                       self.x + xoff,
+                       self.y + yoff)):
+                self.x += xoff
+                self.y += yoff
+                self._path_to_current_job = \
+                  self._path_to_current_job[1:]
             else:
-                # Drop the item and do something else.
-                self._stage.add_entity(self._held_entity,
-                                       self.x, self.y)
-                self._current_job.haul_job.finish()
+                # bug - does not adapt if the path changes!  fix me!
+                assert False, "the path was blocked for a penguin's job!"
+        elif isinstance(self._current_job, MineJob):
+            if self._work_left == 0:
+                # Complete the mine job
+                jx, jy = self._current_job.locations[0]
+                self._stage.set_tile_at(jx, jy, 1)
+                self._current_job.finish()
                 self._current_job = None
                 self._path_to_current_job = None
+                self._look_for_job()
+            else:
+                # Work on the mine job
+                self._work_left -= 1
         elif isinstance(self._current_job, HaulJob):
-            if len(self._path_to_current_job) > 0:
-                xoff, yoff = self._path_to_current_job[0]
+            # Complete the haul job
+            self._held_entity = self._current_job.entity
+            self._stage.delete_entity(self._held_entity)
 
-                if not tile_is_solid(
-                         self._stage.get_tile_at(
-                           self.x + xoff,
-                           self.y + yoff)):
-                    self.x += xoff
-                    self.y += yoff
-                    self._path_to_current_job = \
-                      self._path_to_current_job[1:]
-                else:
-                    # bug - does not adapt if the path changes!  fix me!
-                    assert False, "the path was blocked " \
-                                  + "for a penguin's haul-job! (fixme)"
-            elif len(self._path_to_current_job) == 0:
-                # Pick up the entity.
-                self._held_entity = self._current_job.entity
-                self._stage.delete_entity(self._held_entity)
+            # Get a path to the stockpile.
+            target = self._current_job.slot_location
+            path = astar(self._stage, (self.x, self.y), target)
 
-                # Get a path to the stockpile.
-                target = self._current_job.slot_location
-                result = astar(self._stage, (self.x, self.y), target)
-
-                if result:
-                    self._current_job = DropJob(self._current_job,
-                                                self._held_entity)
-                    self._path_to_current_job = result
-                else:
-                    assert False, "a penguin cannot reach stockpile " \
-                                  + "it planned to use! (fixme)"
-
+            if path:
+                self._current_job = DropJob(self._current_job,
+                                            self._held_entity)
+                self._path_to_current_job = path
+            else:
+                assert False, "a penguin cannot reach stockpile " \
+                              + "it planned to use! (fixme)"
+        elif isinstance(self._current_job, DropJob):
+            # Complete the drop job
+            self._stage.add_entity(self._held_entity, self.x, self.y)
+            self._held_entity = None
+            self._current_job.haul_job.finish()
+            self._current_job = None
+            self._path_to_current_job = None
+            self._look_for_job()
 
     def update(self):
         """
@@ -167,7 +230,8 @@ class Penguin(object):
 
         This should be called every frame before drawing.
         """
-        self._look_for_job(ignore_timeslice=False)
+        if self._current_job is None:
+            self._look_for_job()
 
         if self._stopwatch.measure(self._cookie) == 10:
             self._cookie = self._stopwatch.start()
@@ -230,7 +294,6 @@ if __name__ == '__main__':
     virtual_screen = pygame.Surface(SCREEN_LOGICAL_DIMS)
     scaled_screen = pygame.Surface(SCREEN_REAL_DIMS)
 
-
     pygame.mixer.music.load(os.path.join('music', 'nescape.ogg'))
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
@@ -253,15 +316,17 @@ if __name__ == '__main__':
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     penguins = []
     timeslice = 0
+    ident = 0
     for x, y in penguin_offsets:
-        penguins.append(Penguin(stage,
+        penguins.append(Penguin(ident, stage,
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
-                                JobSearch(stage, jobs,
-                                          timeslice, stopwatch,
-                                          stockpiles),
-                                stopwatch))
+                                jobs,
+                                stopwatch, stockpiles))
         timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
+        ident += 1
+
+    partition_system = PartitionSystem(stage, penguins)
 
     drag_origin = None
 
@@ -286,7 +351,33 @@ if __name__ == '__main__':
                             selected_tool = tools[math.floor(my / 16)]
                     else:
                         # Use the selected tool.
-                        if selected_tool == 'mine':
+                        if selected_tool == 'cursor':
+                            tx = math.floor((camera_x + mx
+                                             - MENU_WIDTH)
+                                            / 16)
+                            ty = math.floor((camera_y + my) / 16)
+
+                            access = 0
+                            for penguin in penguins:
+                                if penguin.partition[ty][tx]:
+                                    access += 1
+                            print('Accessibility: %d; ' % (access,))
+
+                            for job in jobs:
+                                if job.locations[0] != (tx, ty):
+                                    continue
+
+                                print('(J: ', end='')
+                                if job.reserved:
+                                    print('reserved', end='')
+                                elif job.done:
+                                    print('done', end='')
+                                else:
+                                    print('free', end='')
+                                print(')', end='')
+
+                            print()
+                        elif selected_tool == 'mine':
                             tx = math.floor((camera_x + mx
                                              - MENU_WIDTH)
                                             / 16)
@@ -332,14 +423,14 @@ if __name__ == '__main__':
                         * SCROLL_FACTOR
             drag_origin = mouse_x, mouse_y
 
-        # Update the game state.
-        for penguin in penguins:
-            penguin.update()
-
-        # Delete finished mining jobs.
+        # Delete finished jobs.
         for job in jobs:
             if job.done:
                 jobs.remove(job)
+
+        # Update the game state.
+        for penguin in penguins:
+            penguin.update()
 
         # Clear the screen.
         virtual_screen.fill((0, 0, 0))
