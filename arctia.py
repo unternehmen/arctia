@@ -397,8 +397,6 @@ if __name__ == '__main__':
                         top = min((ty, oy))
                         bottom = max((ty, oy))
 
-                        print('left: %d  right: %d  top: %d  bottom: %d' % (left, right, top, bottom))
-
                         for y in range(top, bottom + 1):
                             for x in range(left, right + 1):
                                 # for each tile in the block, do the following:
