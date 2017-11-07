@@ -1,3 +1,5 @@
+from config import *
+
 class Stockpile(object):
     def _detect_acceptable_item_at(self, x, y):
         tid = self._stage.get_tile_at(x, y)
@@ -31,11 +33,11 @@ class Stockpile(object):
     def draw(self, screen, tileset, camera_x, camera_y):
         for y in range(self.y, self.y + self.h):
             for x in range(self.x, self.x + self.w):
-                virtual_screen.blit(tileset,
-                                    (x * 16 - camera_x \
-                                     + MENU_WIDTH,
-                                     y * 16 - camera_y),
-                                    (176, 0, 16, 16))
+                screen.blit(tileset,
+                            (x * 16 - camera_x \
+                             + MENU_WIDTH,
+                             y * 16 - camera_y),
+                            (176, 0, 16, 16))
 
     def reserve_slot(self):
         for y in range(self.h):
