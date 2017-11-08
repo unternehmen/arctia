@@ -62,7 +62,7 @@ class HaulJob(Job):
     """
     A HaulJob represents the task of picking up and moving something.
     """
-    def __init__(self, entity):
+    def __init__(self, entity, location):
         """
         Create a new HaulJob.
 
@@ -73,7 +73,7 @@ class HaulJob(Job):
         """
         Job.__init__(self)
         self.entity = entity
-        self.locations.append((entity[1], entity[2]))
+        self.locations.append((location[0], location[1]))
         self.slot_location = None
 
 class DropJob(Job):
@@ -93,3 +93,7 @@ class DropJob(Job):
         Job.__init__(self)
         self.haul_job = haul_job
         self.entity = entity
+
+    def finish(self):
+        super().finish()
+        self.haul_job.finish()
