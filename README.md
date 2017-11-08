@@ -28,6 +28,17 @@ Both of them can be installed thru Pip like so:
     pip install --user pygame==1.9.3
     pip install --user pytmx==3.21.3
 
+## Testing
+There are some tests to make sure that certain parts of the code
+work correctly.  To run the tests, I use nose 1.3.7.  To install
+nose, you can use this command:
+
+    pip install --user nose==1.3.7
+
+To run the tests, type the following:
+
+    nosetests -v tests
+
 ## Running
 Just run:
 
