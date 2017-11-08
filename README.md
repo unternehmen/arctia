@@ -17,14 +17,18 @@ To designate areas using tools, click on tiles within the world.
 To scroll across the map, right-click and drag.
 
 ## Dependencies
-You need Pygame and PyTMX in order to run the game.
+You need Python 3, Pygame, and PyTMX in order to run the game.
 
 These are the versions I test it with:
 
+* Python 3.5.3
 * Pygame 1.9.3
 * PyTMX 3.21.3
 
-Both of them can be installed thru Pip like so:
+You can get Python 3.5.3 at the Python website:
+<https://www.python.org/>
+
+The libraries Pygame and PyTMX can be installed thru Pip like so:
 
     pip install --user pygame==1.9.3
     pip install --user pytmx==3.21.3
