@@ -178,11 +178,12 @@ class Penguin(object):
                 found_stockpile = None
                 for stock in self._stockpiles:
                     if self.partition[stock.y][stock.x]:
-                        if job.entity[0] in stock.accepted_kinds:
+                        if job.entity[0] in stock.accepted_kinds \
+                           and not stock.full:
                             found_stockpile = stock
                             break
 
-                if found_stockpile and not found_stockpile.full:
+                if found_stockpile:
                     slot = found_stockpile.reserve_slot()
 
                     job.slot_location = slot
@@ -368,7 +369,8 @@ if __name__ == '__main__':
                                 print(')', end='')
 
                             print()
-                        elif selected_tool == 'mine':
+                        elif selected_tool == 'mine' \
+                             or selected_tool == 'stockpile':
                             tx = math.floor((camera_x + mx
                                              - MENU_WIDTH)
                                             / 16)
@@ -397,24 +399,56 @@ if __name__ == '__main__':
                         top = min((ty, oy))
                         bottom = max((ty, oy))
 
-                        for y in range(top, bottom + 1):
-                            for x in range(left, right + 1):
-                                # for each tile in the block, do the following:
-                                tid = stage.get_tile_at(x, y)
+                        if selected_tool == 'mine':
+                            for y in range(top, bottom + 1):
+                                for x in range(left, right + 1):
+                                    tid = stage.get_tile_at(x, y)
 
-                                if tid is None:
-                                    pass
-                                elif tid == 2:
-                                    job_exists = False
-                                    for job in jobs:
-        
-                                        if job.locations[0][0] == x \
-                                           and job.locations[0][1] == y:
-                                            job_exists = True
-                                            break
+                                    if tid is None:
+                                        pass
+                                    elif tid == 2:
+                                        job_exists = False
+                                        for job in jobs:
+                                            loc = job.locations[0][0]
+                                            if loc == (x, y):
+                                                job_exists = True
+                                                break
+                                        if not job_exists:
+                                            jobs.append(MineJob((x, y)))
+                        elif selected_tool == 'stockpile':
+                            # Check if this conflicts with existing stockpiles.
+                            conflicts = False
+                            for stock in stockpiles:
+                                sx, sy = stock.x, stock.y
+                                sw, sh = stock.w, stock.h
+                                if not (sx >= right \
+                                        or sy >= bottom \
+                                        or sx + sw < left \
+                                        or sy + sh < top):
+                                    conflicts = True
+                                    break
 
-                                    if not job_exists:
-                                        jobs.append(MineJob((x, y)))
+                            all_walkable = True
+                            for y in range(top, bottom + 1):
+                                for x in range(left, right + 1):
+                                    tid = stage.get_tile_at(x, y)
+
+                                    if tid is None:
+                                        pass
+                                    elif tile_is_solid(tid):
+                                        all_walkable = False
+                                if not all_walkable:
+                                    break
+
+                            if not conflicts and all_walkable:
+                                # Make the new stockpile.
+                                stock = Stockpile(stage,
+                                                  (left, top,
+                                                   right - left + 1,
+                                                   bottom - top + 1),
+                                                  jobs, ['fish'])
+                                stockpiles.append(stock)
+
                 elif event.button == 3:
                     # Stop dragging the screen.
                     drag_origin = None
