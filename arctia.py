@@ -433,10 +433,10 @@ if __name__ == '__main__':
                             for stock in stockpiles:
                                 sx, sy = stock.x, stock.y
                                 sw, sh = stock.w, stock.h
-                                if not (sx >= right \
-                                        or sy >= bottom \
-                                        or sx + sw < left \
-                                        or sy + sh < top):
+                                if not (sx > right \
+                                        or sy > bottom \
+                                        or sx + sw <= left \
+                                        or sy + sh <= top):
                                     conflicts = True
                                     break
 
@@ -454,6 +454,7 @@ if __name__ == '__main__':
 
                             if not conflicts and all_walkable:
                                 # Make the new stockpile.
+                                print('made new stockpile')
                                 stock = Stockpile(stage,
                                                   (left, top,
                                                    right - left + 1,
