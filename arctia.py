@@ -409,7 +409,7 @@ if __name__ == '__main__':
                                     elif tid == 2:
                                         job_exists = False
                                         for job in jobs:
-                                            loc = job.locations[0][0]
+                                            loc = job.locations[0]
                                             if loc == (x, y):
                                                 job_exists = True
                                                 break
