@@ -198,6 +198,15 @@ class Penguin(object):
                     self._path_to_current_job = path[1:]
                     break
 
+    def _finish_job_entirely(self):
+        """
+        Mark the current job as complete and get rid of its state.
+        """
+        self._current_job.finish()
+        self._current_job = None
+        self._path_to_current_job = None
+        self._look_for_job()
+
     def _take_turn(self):
         """
         Make the Penguin take a turn.
@@ -232,10 +241,7 @@ class Penguin(object):
                 # Complete the mine job
                 jx, jy = self._current_job.locations[0]
                 self._stage.set_tile_at(jx, jy, 1)
-                self._current_job.finish()
-                self._current_job = None
-                self._path_to_current_job = None
-                self._look_for_job()
+                self._finish_job_entirely()
             else:
                 # Work on the mine job
                 self._work_left -= 1
@@ -259,10 +265,7 @@ class Penguin(object):
             # Complete the drop job
             self._stage.add_entity(self._held_entity, self.x, self.y)
             self._held_entity = None
-            self._current_job.haul_job.finish()
-            self._current_job = None
-            self._path_to_current_job = None
-            self._look_for_job()
+            self._finish_job_entirely()
 
     def update(self):
         """
