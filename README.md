@@ -1,11 +1,12 @@
 ## What is Arctia?
-Arctia is a small game in the same genre as Dwarf Fortress and Rimworld.
-I wrote Arctia for practice, for fun, and as a tribute to the game genre.
+Arctia is a small game inspired by Dwarf Fortress and Rimworld.
+I am writing Arctia for practice, for fun, and as a tribute to the
+"automated villagers" city-building game genre.
 
 Tux and his friends were surprised when a huge ice chunk drifted
 into the nearby sea.  The chunk was so huge that some penguins packed
 their bags and decided to stake out a piece of the chunk to live on.
-The elders call this chunk "Arctia", and you are leading a colony
+The elders call this new land "Arctia", and you are leading a colony
 of penguin settlers on this new territory.
 
 ## Controls
