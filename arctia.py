@@ -106,6 +106,10 @@ class Penguin(object):
         # Stopwatch cookie for scheduling the penguin's turns
         self._cookie = stopwatch.start()
 
+        ## Gameplay stats
+        # The penguin's hunger (0 = full, >40 = hungry, >80 = starving)
+        self._hunger = 0
+
         ## Job data
         # Amount of work left (in turns) for the current job
         self._work_left = 0
@@ -144,6 +148,10 @@ class Penguin(object):
         """
         Find a job to do.
         """
+        if self._hunger >= HUNGER_THRESHOLD:
+            # Look for food!
+            pass
+
         # Find a mining job first.
         for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
             x, y = job.locations[0]
@@ -217,6 +225,9 @@ class Penguin(object):
         """
         Make the Penguin take a turn.
         """
+        # Get hungrier.
+        self._hunger += 1
+
         if not self._current_job:
             # We have no job, so do nothing on our turn.
             pass

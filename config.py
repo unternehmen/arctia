@@ -41,6 +41,18 @@ SCROLL_FACTOR = 2
 
 
 """
+How much time (in turns) until a full penguin becomes hungry.
+"""
+HUNGER_THRESHOLD = 40
+
+
+"""
+How much time (in turns) until a full penguin begins starving.
+"""
+STARVING_THRESHOLD = 80
+
+
+"""
 Non-configurable constants
 
 These constants do not need to be configured because they follow
