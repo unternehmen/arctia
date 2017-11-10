@@ -52,6 +52,33 @@ class Stage(object):
     def register_tile_change_listener(self, listener):
         self._tile_change_listeners.append(listener)
 
+    def _draw_tile_at(self, screen, tileset, camera_x, camera_y, loc):
+        x, y = loc
+        tid = self.data[y][x]
+        tx = tid % 16
+        ty = math.floor(tid / 16)
+        screen.blit(tileset,
+                    (x * 16 - camera_x + MENU_WIDTH,
+                     y * 16 - camera_y),
+                    (tx * 16, ty * 16, 16, 16))
+
+    def _draw_entity_at(self, screen, tileset, camera_x, camera_y, loc):
+        x, y = loc
+        if self.entity_matrix[y][x]:
+            kind = self.entity_matrix[y][x].kind
+
+            if kind == 'rock':
+                tx = 6
+            elif kind == 'bug':
+                tx = 7
+            elif kind == 'fish':
+                tx = 4
+
+            screen.blit(tileset,
+                        (x * 16 - camera_x + MENU_WIDTH,
+                         y * 16 - camera_y),
+                        (tx * 16, 0, 16, 16))
+
     def draw(self, screen, tileset, camera_x, camera_y):
         clip_left = math.floor(camera_x / 16)
         clip_top = math.floor(camera_y / 16)
@@ -63,35 +90,10 @@ class Stage(object):
                 if x < 0 or x >= self.width \
                    or y < 0 or y >= self.height:
                     continue
-                tid = self.data[y][x]
-                tx = tid % 16
-                ty = math.floor(tid / 16)
-                screen.blit(tileset,
-                            (x * 16 - camera_x + MENU_WIDTH,
-                             y * 16 - camera_y),
-                            (tx * 16, ty * 16, 16, 16))
 
-        # Draw entities.
-        for y in range(clip_top, clip_top + clip_height):
-            for x in range(clip_left, clip_left + clip_width):
-                if x < 0 or x >= self.width \
-                   or y < 0 or y >= self.height:
-                    continue
-                if self.entity_matrix[y][x]:
-                    kind = self.entity_matrix[y][x].kind
-
-                    if kind == 'rock':
-                        tx = 6
-                    elif kind == 'bug':
-                        tx = 7
-                    elif kind == 'fish':
-                        tx = 4
-
-                    screen.blit(tileset,
-                                (x * 16 - camera_x + MENU_WIDTH,
-                                 y * 16 - camera_y),
-                                (tx * 16, 0, 16, 16))
-
+                args = screen, tileset, camera_x, camera_y, (x, y)
+                self._draw_tile_at(*args)
+                self._draw_entity_at(*args)
 
     def get_player_start_pos(self):
         return self.player_start_x, self.player_start_y
