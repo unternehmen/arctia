@@ -337,7 +337,6 @@ if __name__ == '__main__':
                                 math.floor(player_start_y / 16) + y,
                                 jobs,
                                 stopwatch, stockpiles))
-        timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
         ident += 1
 
     partition_system = PartitionSystem(stage, penguins)
