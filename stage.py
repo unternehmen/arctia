@@ -141,16 +141,8 @@ class Stage(object):
             kind: the kind of entity (bug | stone | fish)
             location: a tuple (x, y) specifying a location
         """
-        x, y = location
-
-        assert 0 <= x < self.width
-        assert 0 <= y < self.height
-        assert not self.entity_matrix[y][x], \
-               'location is not empty: x=%d, y=%d' % (x, y)
-
         entity = Entity(kind=kind)
-        self.entity_matrix[y][x] = entity
-        self.entity_list.append((entity, x, y))
+        self.add_entity(entity, location)
 
     def delete_entity(self, entity):
         """
