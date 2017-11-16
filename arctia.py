@@ -11,7 +11,7 @@ from common import *
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
-from task import TaskGo, TaskMine, TaskTake, TaskDrop
+from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
 from stopwatch import Stopwatch
 
 from astar import astar
@@ -204,16 +204,47 @@ class Penguin(object):
                     entity, loc = result
                     x, y = loc
 
+                    def cancel_haul():
+                        self._current_job.stockpile.relinquish_slot(
+                            self._current_job.slot_location)
+                        self._forget_job()
+
                     def drop_and_forget():
                         task = TaskDrop(self._stage, self,
                                         finished_proc=\
-                                            self._forget_job)
+                                            cancel_haul)
+                        self._current_task = task
+
+                    def nowhere_to_dump_error():
+                        assert False, 'penguin could not find anywhere to dump an object'
+
+                    def dump_somewhere():
+                        def spot_is_empty(spot):
+                            no_entities = \
+                              self._stage.entity_at(spot) is None
+                            not_solid = \
+                              not tile_is_solid( \
+                                    self._stage.get_tile_at( \
+                                      spot[0], spot[1]))
+                            return no_entities and not_solid
+                        task = TaskGoToAnyMatchingSpot(
+                                 self._stage, self, spot_is_empty,
+                                 impossible_proc=nowhere_to_dump_error,
+                                 finished_proc=drop_and_finish)
                         self._current_task = task
 
                     def drop_and_finish():
-                        task = TaskDrop(self._stage, self,
-                                        finished_proc=\
-                                            self._finish_job_entirely)
+                        occupier = self._stage.entity_at(
+                                     (self.x, self.y))
+                        if occupier:
+                            task = TaskTrade(self._stage, self,
+                                             occupier,
+                                             finished_proc=\
+                                                 dump_somewhere)
+                        else:
+                            task = TaskDrop(self._stage, self,
+                                            finished_proc=\
+                                              self._finish_job_entirely)
                         self._current_task = task
 
                     def go_to_stock_slot():
