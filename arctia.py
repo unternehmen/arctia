@@ -288,7 +288,7 @@ if __name__ == '__main__':
     virtual_screen = pygame.Surface(SCREEN_LOGICAL_DIMS)
     scaled_screen = pygame.Surface(SCREEN_REAL_DIMS)
 
-    pygame.mixer.music.load(os.path.join('music', 'nescape.ogg'))
+    pygame.mixer.music.load(os.path.join('music', 'shineblitz.ogg'))
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
 
