@@ -11,6 +11,7 @@ from common import *
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob, DropJob
+from task import TaskGo, TaskMine, TaskTake, TaskDrop
 from stopwatch import Stopwatch
 
 from astar import astar
@@ -120,6 +121,9 @@ class Penguin(object):
         # The penguin's current job
         self._current_job = None
 
+        # The penguin's current task
+        self._current_task = None
+
         # The path to the penguin's current job
         self._path_to_current_job = None
 
@@ -160,15 +164,19 @@ class Penguin(object):
                 if job.reserved or job.done:
                     continue
 
-                path = astar(self._stage,
-                             (self.x, self.y),
-                             job.locations[0])
-                assert path
+                def start_mining():
+                    task = TaskMine(self._stage, self, (x, y),
+                                    finished_proc = \
+                                      self._finish_job_entirely)
+                    self._current_task = task
+
+                task = TaskGo(self._stage, self, (x, y),
+                              blocked_proc=self._forget_job,
+                              finished_proc=start_mining)
+                self._current_task = task
 
                 job.reserve()
                 self._current_job = job
-                self._path_to_current_job = path[1:]
-                self._work_left = 10
                 return
 
         # Otherwise, find a hauling job.
@@ -196,26 +204,57 @@ class Penguin(object):
                     entity, loc = result
                     x, y = loc
 
-                    job = HaulJob(entity, (x, y))
+                    def drop_and_forget():
+                        task = TaskDrop(self._stage, self,
+                                        finished_proc=\
+                                            self._forget_job)
+                        self._current_task = task
 
-                    path = \
-                        astar(self._stage,
-                              (self.x, self.y),
-                              (x, y))
-                    assert path
+                    def drop_and_finish():
+                        task = TaskDrop(self._stage, self,
+                                        finished_proc=\
+                                            self._finish_job_entirely)
+                        self._current_task = task
+
+                    def go_to_stock_slot():
+                        task = TaskGo(self._stage, self,
+                                      self._current_job.slot_location,
+                                      blocked_proc=drop_and_forget,
+                                      finished_proc=drop_and_finish)
+                        self._current_task = task
+                    
+                    def pick_up_and_go():
+                        task = TaskTake(self._stage,
+                                        self, entity,
+                                        finished_proc=\
+                                          go_to_stock_slot)
+                        self._current_task = task
+
+                    task = TaskGo(self._stage, self, (x, y),
+                                  blocked_proc=self._forget_job,
+                                  finished_proc=pick_up_and_go)
+                    self._current_task = task
 
                     entity.reserve()
-                    self._path_to_current_job = path[1:]
+
+                    job = HaulJob(entity, (x, y))
+                    job.slot_location = stock.reserve_slot()
+                    job.stockpile = stock
+
                     self._current_job = job
-                    self._current_job.slot_location = \
-                      stock.reserve_slot()
-                    self._current_job.stockpile = stock
-                    return
+
+    def _forget_job(self):
+        self._current_task = None
+        self._current_job.relinquish()
+        self._current_job = None
+        self._path_to_current_job = None
+        self._look_for_job()
 
     def _finish_job_entirely(self):
         """
         Mark the current job as complete and get rid of its state.
         """
+        self._current_task = None
         self._current_job.finish()
         self._current_job = None
         self._path_to_current_job = None
@@ -228,64 +267,8 @@ class Penguin(object):
         # Get hungrier.
         self._hunger += 1
 
-        if not self._current_job:
-            # We have no job, so do nothing on our turn.
-            pass
-        elif (len(self._path_to_current_job) > 0 \
-            and not isinstance(self._current_job, MineJob)) \
-           or (len(self._path_to_current_job) > 1 \
-               and isinstance(self._current_job, MineJob)):
-            # Step toward the job.
-            xoff, yoff = \
-              (self._path_to_current_job[0][0] - self.x,
-               self._path_to_current_job[0][1] - self.y)
-            assert -1 <= xoff <= 1
-            assert -1 <= yoff <= 1
-
-            if not tile_is_solid(
-                     self._stage.get_tile_at(
-                       self.x + xoff,
-                       self.y + yoff)):
-                self.x += xoff
-                self.y += yoff
-                self._path_to_current_job = \
-                  self._path_to_current_job[1:]
-            else:
-                # bug - does not adapt if the path changes!  fix me!
-                assert False, "the path was blocked for a penguin's job!"
-        elif isinstance(self._current_job, MineJob):
-            if self._work_left == 0:
-                # Complete the mine job
-                jx, jy = self._current_job.locations[0]
-                self._stage.set_tile_at(jx, jy, 1)
-                self._finish_job_entirely()
-            else:
-                # Work on the mine job
-                self._work_left -= 1
-        elif isinstance(self._current_job, HaulJob):
-            # Complete the haul job
-            self._held_entity = self._current_job.entity
-            self._held_entity.relinquish()
-            self._stage.delete_entity(self._held_entity)
-
-            # Get a path to the stockpile.
-            target = self._current_job.slot_location
-            path = astar(self._stage, (self.x, self.y), target)
-
-            if path:
-                self._current_job = DropJob(self._current_job,
-                                            self._held_entity)
-                self._path_to_current_job = path
-            else:
-                assert False, "a penguin cannot reach stockpile " \
-                              + "it planned to use! (fixme)"
-        elif isinstance(self._current_job, DropJob):
-            # Complete the drop job
-            self._stage.add_entity(self._held_entity, (self.x, self.y))
-            self._held_entity = None
-            self._current_job.haul_job.stockpile.relinquish_slot(
-                self._current_job.haul_job.slot_location)
-            self._finish_job_entirely()
+        if self._current_task:
+            self._current_task.enact()
 
     def update(self):
         """
@@ -308,7 +291,7 @@ if __name__ == '__main__':
     virtual_screen = pygame.Surface(SCREEN_LOGICAL_DIMS)
     scaled_screen = pygame.Surface(SCREEN_REAL_DIMS)
 
-    pygame.mixer.music.load(os.path.join('music', 'shineblitz.ogg'))
+    pygame.mixer.music.load(os.path.join('music', 'nescape.ogg'))
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
 
@@ -370,27 +353,7 @@ if __name__ == '__main__':
                                              - MENU_WIDTH)
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
-
-                            access = 0
-                            for penguin in penguins:
-                                if penguin.partition[ty][tx]:
-                                    access += 1
-                            print('Accessibility: %d; ' % (access,))
-
-                            for job in jobs:
-                                if job.locations[0] != (tx, ty):
-                                    continue
-
-                                print('(J: ', end='')
-                                if job.reserved:
-                                    print('reserved', end='')
-                                elif job.done:
-                                    print('done', end='')
-                                else:
-                                    print('free', end='')
-                                print(')', end='')
-
-                            print()
+                            stage.set_tile_at(tx, ty, 2)
                         elif selected_tool == 'mine' \
                              or selected_tool == 'stockpile':
                             tx = math.floor((camera_x + mx
@@ -464,7 +427,6 @@ if __name__ == '__main__':
 
                             if not conflicts and all_walkable:
                                 # Make the new stockpile.
-                                print('made new stockpile')
                                 stock = Stockpile(stage,
                                                   (left, top,
                                                    right - left + 1,

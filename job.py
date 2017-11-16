@@ -14,7 +14,6 @@ class Job(object):
         """
         self.done = False
         self.reserved = False
-        self.locations = []
 
     def reserve(self):
         """
@@ -55,7 +54,7 @@ class MineJob(Job):
         Returns: a new MineJob
         """
         Job.__init__(self)
-        self.locations.append(location)
+        self.locations = [location]
 
 
 class HaulJob(Job):
@@ -73,27 +72,13 @@ class HaulJob(Job):
         """
         Job.__init__(self)
         self.entity = entity
-        self.locations.append((location[0], location[1]))
         self.slot_location = None
-
-class DropJob(Job):
-    """
-    A DropJob represents the task of dropping something somewhere.
-    """
-    def __init__(self, haul_job, entity):
-        """
-        Create a new DropJob.
-
-        Arguments:
-            haul_job: the HaulJob that led to this DropJob
-            entity: the entity that needs to be dropped off
-
-        Returns: a new DropJob.
-        """
-        Job.__init__(self)
-        self.haul_job = haul_job
-        self.entity = entity
+        self.stockpile = None
 
     def finish(self):
+        self.stockpile.relinquish_slot(self.slot_location)
         super().finish()
-        self.haul_job.finish()
+
+    @property
+    def locations(self):
+        return [self.entity.location]

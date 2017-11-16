@@ -143,7 +143,7 @@ class Stage(object):
             kind: the kind of entity (bug | stone | fish)
             location: a tuple (x, y) specifying a location
         """
-        entity = Entity(kind=kind)
+        entity = Entity(kind=kind, location=location)
         self.add_entity(entity, location)
 
     def delete_entity(self, entity):
