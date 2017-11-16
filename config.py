@@ -41,18 +41,16 @@ SCROLL_FACTOR = 2
 
 
 """
-The number of job search timeslices there are.
-
-This controls how many job searches are processed per frame,
-since each job search only runs during a certain timeslice (e.g., 1).
-
-If there are less timeslices, the game will run slower but mobs will
-be able to find jobs quicker (in game-time).
-
-On the other hand, If there are more slices, the game will run
-faster but mobs will take more time to find jobs.
+How much time (in turns) until a full penguin becomes hungry.
 """
-NUM_OF_TIMESLICES = 4
+HUNGER_THRESHOLD = 40
+
+
+"""
+How much time (in turns) until a full penguin begins starving.
+"""
+STARVING_THRESHOLD = 80
+
 
 """
 Non-configurable constants

@@ -106,6 +106,10 @@ class Penguin(object):
         # Stopwatch cookie for scheduling the penguin's turns
         self._cookie = stopwatch.start()
 
+        ## Gameplay stats
+        # The penguin's hunger (0 = full, >40 = hungry, >80 = starving)
+        self._hunger = 0
+
         ## Job data
         # Amount of work left (in turns) for the current job
         self._work_left = 0
@@ -144,6 +148,10 @@ class Penguin(object):
         """
         Find a job to do.
         """
+        if self._hunger >= HUNGER_THRESHOLD:
+            # Look for food!
+            pass
+
         # Find a mining job first.
         for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
             x, y = job.locations[0]
@@ -161,42 +169,48 @@ class Penguin(object):
                 self._current_job = job
                 self._path_to_current_job = path[1:]
                 self._work_left = 10
-                break
-
-        if self._current_job:
-            return
+                return
 
         # Otherwise, find a hauling job.
-        for job in filter(lambda j: isinstance(j, HaulJob), self._jobs):
-            x, y = job.locations[0]
+        for stock in self._stockpiles:
+            if not stock.full and self.partition[stock.y][stock.x]:
+                def _entity_is_stockpiled(entity, x, y):
+                    for stock in self._stockpiles:
+                        if entity.kind in stock.accepted_kinds \
+                           and x >= stock.x \
+                           and x < stock.x + stock.w \
+                           and y >= stock.y \
+                           and y < stock.y + stock.h:
+                            return True
+                    return False
 
-            if self.partition[y][x]:
-                if job.reserved or job.done:
-                    continue
+                result = \
+                  self._stage.find_entity(
+                    lambda e, x, y: \
+                      self.partition[y][x] \
+                      and e.kind in stock.accepted_kinds \
+                      and not e.reserved \
+                      and not _entity_is_stockpiled(e, x, y))
 
-                # Ensure that there is a stockpile we can haul to.
-                found_stockpile = None
-                for stock in self._stockpiles:
-                    if self.partition[stock.y][stock.x]:
-                        if job.entity[0] in stock.accepted_kinds \
-                           and not stock.full:
-                            found_stockpile = stock
-                            break
+                if result:
+                    entity, loc = result
+                    x, y = loc
 
-                if found_stockpile:
-                    slot = found_stockpile.reserve_slot()
+                    job = HaulJob(entity, (x, y))
 
-                    job.slot_location = slot
-
-                    path = astar(self._stage,
-                                 (self.x, self.y),
-                                 job.locations[0])
+                    path = \
+                        astar(self._stage,
+                              (self.x, self.y),
+                              (x, y))
                     assert path
 
-                    job.reserve()
-                    self._current_job = job
+                    entity.reserve()
                     self._path_to_current_job = path[1:]
-                    break
+                    self._current_job = job
+                    self._current_job.slot_location = \
+                      stock.reserve_slot()
+                    self._current_job.stockpile = stock
+                    return
 
     def _finish_job_entirely(self):
         """
@@ -211,6 +225,9 @@ class Penguin(object):
         """
         Make the Penguin take a turn.
         """
+        # Get hungrier.
+        self._hunger += 1
+
         if not self._current_job:
             # We have no job, so do nothing on our turn.
             pass
@@ -248,6 +265,7 @@ class Penguin(object):
         elif isinstance(self._current_job, HaulJob):
             # Complete the haul job
             self._held_entity = self._current_job.entity
+            self._held_entity.relinquish()
             self._stage.delete_entity(self._held_entity)
 
             # Get a path to the stockpile.
@@ -263,8 +281,10 @@ class Penguin(object):
                               + "it planned to use! (fixme)"
         elif isinstance(self._current_job, DropJob):
             # Complete the drop job
-            self._stage.add_entity(self._held_entity, self.x, self.y)
+            self._stage.add_entity(self._held_entity, (self.x, self.y))
             self._held_entity = None
+            self._current_job.haul_job.stockpile.relinquish_slot(
+                self._current_job.haul_job.slot_location)
             self._finish_job_entirely()
 
     def update(self):
@@ -317,7 +337,6 @@ if __name__ == '__main__':
                                 math.floor(player_start_y / 16) + y,
                                 jobs,
                                 stopwatch, stockpiles))
-        timeslice = (timeslice + 1) % NUM_OF_TIMESLICES
         ident += 1
 
     partition_system = PartitionSystem(stage, penguins)
@@ -424,10 +443,10 @@ if __name__ == '__main__':
                             for stock in stockpiles:
                                 sx, sy = stock.x, stock.y
                                 sw, sh = stock.w, stock.h
-                                if not (sx >= right \
-                                        or sy >= bottom \
-                                        or sx + sw < left \
-                                        or sy + sh < top):
+                                if not (sx > right \
+                                        or sy > bottom \
+                                        or sx + sw <= left \
+                                        or sy + sh <= top):
                                     conflicts = True
                                     break
 
@@ -445,6 +464,7 @@ if __name__ == '__main__':
 
                             if not conflicts and all_walkable:
                                 # Make the new stockpile.
+                                print('made new stockpile')
                                 stock = Stockpile(stage,
                                                   (left, top,
                                                    right - left + 1,

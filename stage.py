@@ -1,6 +1,7 @@
 import pytmx
 import os
 import math
+from entity import Entity
 from config import *
 
 class Stage(object):
@@ -13,6 +14,12 @@ class Stage(object):
         self.height = tiled_map.height
         self.data = [[0 for x in range(self.width)]
                      for y in range(self.height)]
+        self.entity_matrix = [[None for x in range(self.width)]
+                            for y in range(self.height)]
+        # The list of on-stage entities and their coordinates.
+        # Contains tuples of the following format: (entity, x, y)
+        self.entity_list = []
+
         player_start_obj = \
             tiled_map.get_object_by_name('Player Start')
         self.player_start_x = player_start_obj.x
@@ -31,13 +38,13 @@ class Stage(object):
 
                 # Some tiles add an entity instead of a tile.
                 if tid == 4:
-                    self.create_entity('fish', x, y)
+                    self.create_entity('fish', (x, y))
                     tid = 1
                 elif tid == 6:
-                    self.create_entity('rock', x, y)
+                    self.create_entity('rock', (x, y))
                     tid = 1
                 elif tid == 7:
-                    self.create_entity('bug', x, y)
+                    self.create_entity('bug', (x, y))
                     tid = 1
 
                 self.data[y][x] = tid
@@ -45,32 +52,20 @@ class Stage(object):
     def register_tile_change_listener(self, listener):
         self._tile_change_listeners.append(listener)
 
-    def draw(self, screen, tileset, camera_x, camera_y):
-        clip_left = math.floor(camera_x / 16)
-        clip_top = math.floor(camera_y / 16)
-        clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
-        clip_height = math.floor(SCREEN_LOGICAL_HEIGHT / 16 + 1)
+    def _draw_tile_at(self, screen, tileset, camera_x, camera_y, loc):
+        x, y = loc
+        tid = self.data[y][x]
+        tx = tid % 16
+        ty = math.floor(tid / 16)
+        screen.blit(tileset,
+                    (x * 16 - camera_x + MENU_WIDTH,
+                     y * 16 - camera_y),
+                    (tx * 16, ty * 16, 16, 16))
 
-        for y in range(clip_top, clip_top + clip_height):
-            for x in range(clip_left, clip_left + clip_width):
-                if x < 0 or x >= self.width \
-                   or y < 0 or y >= self.height:
-                    continue
-                tid = self.data[y][x]
-                tx = tid % 16
-                ty = math.floor(tid / 16)
-                screen.blit(tileset,
-                            (x * 16 - camera_x + MENU_WIDTH,
-                             y * 16 - camera_y),
-                            (tx * 16, ty * 16, 16, 16))
-
-        # Draw entities.
-        for ent in self.entities:
-            kind, x, y = ent
-
-            if x < clip_left or x >= clip_left + clip_width \
-               or y < clip_top or y >= clip_top + clip_height:
-                continue
+    def _draw_entity_at(self, screen, tileset, camera_x, camera_y, loc):
+        x, y = loc
+        if self.entity_matrix[y][x]:
+            kind = self.entity_matrix[y][x].kind
 
             if kind == 'rock':
                 tx = 6
@@ -83,6 +78,22 @@ class Stage(object):
                         (x * 16 - camera_x + MENU_WIDTH,
                          y * 16 - camera_y),
                         (tx * 16, 0, 16, 16))
+
+    def draw(self, screen, tileset, camera_x, camera_y):
+        clip_left = math.floor(camera_x / 16)
+        clip_top = math.floor(camera_y / 16)
+        clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
+        clip_height = math.floor(SCREEN_LOGICAL_HEIGHT / 16 + 1)
+
+        for y in range(clip_top, clip_top + clip_height):
+            for x in range(clip_left, clip_left + clip_width):
+                if x < 0 or x >= self.width \
+                   or y < 0 or y >= self.height:
+                    continue
+
+                args = screen, tileset, camera_x, camera_y, (x, y)
+                self._draw_tile_at(*args)
+                self._draw_entity_at(*args)
 
     def get_player_start_pos(self):
         return self.player_start_x, self.player_start_y
@@ -107,25 +118,33 @@ class Stage(object):
         for listener in self._tile_change_listeners:
             listener.tile_changed(prev_tid, cur_tid, (x, y))
 
-    def add_entity(self, entity, x, y):
+    def add_entity(self, entity, location):
         """
         Add an entity to the Stage.
 
         Arguments:
             entity: the entity
         """
-        self.entities.append((entity[0], x, y))
+        x, y = location
 
-    def create_entity(self, kind, x, y):
+        assert 0 <= x < self.width
+        assert 0 <= y < self.height
+        assert not self.entity_matrix[y][x], \
+               'location is not empty: x=%d, y=%d' % (x, y)
+
+        self.entity_matrix[y][x] = entity
+        self.entity_list.append((entity, x, y))
+
+    def create_entity(self, kind, location):
         """
-        Create an entity of the given kind at (x, y) in this Stage.
+        Create an entity of the given kind at a location in this Stage.
 
         Arguments:
             kind: the kind of entity (bug | stone | fish)
-            x: the X coordinate of the entity
-            y: the Y coordinate of the entity
+            location: a tuple (x, y) specifying a location
         """
-        self.add_entity((kind, 0, 0), x, y)
+        entity = Entity(kind=kind)
+        self.add_entity(entity, location)
 
     def delete_entity(self, entity):
         """
@@ -134,8 +153,34 @@ class Stage(object):
         Arguments:
             entity: the entity to delete
         """
-        self.entities.remove(entity)
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.entity_matrix[y][x] == entity:
+                    self.entity_matrix[y][x] = None
+                    self.entity_list.remove((entity, x, y))
 
     def update(self):
-        for ent in self.entities:
-            pass
+        pass
+
+    def find_entity(self, condition):
+        """
+        Find an entity on the stage satisfying a condition.
+
+        Arguments:
+            condition: a lambda taking an event, the event's
+                x coordinate, and the event's y coordinate,
+                and returning True if the event is accepted
+                or False if the event is not accepted
+        Returns:
+            a tuple (event, (x, y)) if an event was accepted,
+            or None if no event was accepted
+        """
+        for ent, x, y in self.entity_list:
+            if condition(ent, x, y):
+                return ent, (x, y)
+
+        return None
+
+    def entity_at(self, location):
+        x, y = location
+        return self.entity_matrix[y][x]
