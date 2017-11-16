@@ -10,7 +10,7 @@ from config import *
 from common import *
 from stage import Stage
 from stockpile import Stockpile
-from job import Job, HaulJob, MineJob, DropJob
+from job import Job, HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop
 from stopwatch import Stopwatch
 
