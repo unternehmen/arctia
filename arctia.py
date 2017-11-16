@@ -217,11 +217,17 @@ class Penguin(object):
                         self._current_task = task
 
                     def go_to_stock_slot():
-                        task = TaskGo(self._stage, self,
-                                      self._current_job.slot_location,
-                                      blocked_proc=drop_and_forget,
-                                      finished_proc=drop_and_finish)
-                        self._current_task = task
+                        # Check if we can reach the stockpile.
+                        sx = self._current_job.stockpile.x
+                        sy = self._current_job.stockpile.y
+                        if not self.partition[sy][sx]:
+                            drop_and_finish()
+                        else:
+                            task = TaskGo(self._stage, self,
+                                          self._current_job.slot_location,
+                                          blocked_proc=drop_and_forget,
+                                          finished_proc=drop_and_finish)
+                            self._current_task = task
                     
                     def pick_up_and_go():
                         task = TaskTake(self._stage,
