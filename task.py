@@ -47,7 +47,6 @@ class TaskGo(object):
         #       unreachable, that should count as a block!
         # If the target is not reachable, call blocked_proc.
         if not self._target_is_reachable():
-            print('Running blocked_proc...')
             self._blocked_proc()
             return
 
