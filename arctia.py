@@ -71,6 +71,7 @@ class PartitionSystem(object):
         self._refresh_partial(self._mobs)
 
 
+
 class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
@@ -152,6 +153,10 @@ class Penguin(object):
         """
         Find a job to do.
         """
+        assert self._current_job is None, \
+               'Penguin %s looked for a job but it already has one!' % \
+                 self.ident
+
         if self._hunger >= HUNGER_THRESHOLD:
             # Look for food!
             pass
@@ -252,6 +257,9 @@ class Penguin(object):
                         self._current_task = task
 
                     def go_to_stock_slot():
+                        # Unreserve the object we picked up.
+                        self._held_entity.relinquish()
+
                         # Check if we can reach the stockpile.
                         sx = self._current_job.stockpile.x
                         sy = self._current_job.stockpile.y
@@ -278,11 +286,12 @@ class Penguin(object):
 
                     entity.reserve()
 
-                    job = HaulJob(entity, (x, y))
+                    job = HaulJob(entity)
                     job.slot_location = stock.reserve_slot()
                     job.stockpile = stock
 
                     self._current_job = job
+                    return
 
     def _forget_job(self):
         self._current_task = None
@@ -394,7 +403,12 @@ if __name__ == '__main__':
                                              - MENU_WIDTH)
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
-                            stage.set_tile_at(tx, ty, 2)
+                            #stage.set_tile_at(tx, ty, 2)
+                            ent = stage.entity_at((tx, ty))
+                            if ent:
+                                print('Entity:', ent.kind)
+                                print('  location:', ent.location)
+                                print('  reserved:', ent.reserved)
                         elif selected_tool == 'mine' \
                              or selected_tool == 'stockpile':
                             tx = math.floor((camera_x + mx
