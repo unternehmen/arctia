@@ -1,6 +1,7 @@
 import pytmx
 import os
 import math
+import random
 from entity import Entity
 from config import *
 
@@ -158,6 +159,7 @@ class Stage(object):
                 if self.entity_matrix[y][x] == entity:
                     self.entity_matrix[y][x] = None
                     self.entity_list.remove((entity, x, y))
+                    entity.location = None
 
     def update(self):
         pass
@@ -175,6 +177,7 @@ class Stage(object):
             a tuple (event, (x, y)) if an event was accepted,
             or None if no event was accepted
         """
+        random.shuffle(self.entity_list)
         for ent, x, y in self.entity_list:
             if condition(ent, x, y):
                 return ent, (x, y)

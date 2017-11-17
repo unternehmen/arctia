@@ -113,16 +113,23 @@ class TaskMine(object):
             return
 
 class TaskTake(object):
-    def __init__(self, stage, unit, entity, finished_proc):
+    def __init__(self, stage, unit, entity,
+                 not_found_proc, finished_proc):
         self._stage = stage
         self._unit = unit
         self._entity = entity
         self._finished_proc = finished_proc
-        assert (unit.x, unit.y) == entity.location
+        self._not_found_proc = not_found_proc
 
     def enact(self):
+        if not self._entity.location \
+           or self._entity.location != (self._unit.x, self._unit.y):
+            self._not_found_proc()
+            return
+
         assert not self._unit._held_entity, \
                'unit tried to take when its hands were full'
+
         self._unit._held_entity = self._entity
         self._entity.relinquish()
         self._entity.location = None
@@ -272,3 +279,42 @@ class TaskTrade(object):
 
         self._finished_proc()
         return
+
+class TaskEat(object):
+    def __init__(self, stage, unit, entity,
+                 interrupted_proc, finished_proc):
+        self._work_left = 10
+        self._stage = stage
+        self._unit = unit
+        self._entity = entity
+        self._interrupted_proc = interrupted_proc
+        self._finished_proc = finished_proc
+        self._finished = False
+
+    def enact(self):
+        assert not self._finished, \
+               'task enacted after it was finished'
+
+        # If the object is no longer on the stage, interrupt.
+        if self._entity.location is None:
+            self._interrupted_proc()
+            self._finished = True
+            return
+
+        # If the object is no longer near the unit, interrupt.
+        if -1 <= self._unit.x - self._entity.location[0] <= 1 \
+           and -1 <= self._unit.y - self._entity.location[1] <= 1:
+            pass
+        else:
+            self._interrupted_proc()
+            self._finished = True
+            return
+
+        # Otherwise, continue eating.
+        self._work_left -= 1
+        if self._work_left == 0:
+            self._unit.hunger = max(0, self._unit.hunger - 40)
+            self._stage.delete_entity(self._entity)
+            self._finished_proc()
+            self._finished = True
+            return

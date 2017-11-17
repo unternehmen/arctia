@@ -5,13 +5,14 @@ import sys
 import os
 import pytmx
 import math
+from functools import partial
 
 from config import *
 from common import *
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
-from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
+from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat
 from stopwatch import Stopwatch
 
 from astar import astar
@@ -70,6 +71,79 @@ class PartitionSystem(object):
     def refresh(self):
         self._refresh_partial(self._mobs)
 
+
+class BugDispatchSystem(object):
+    """
+    A BugDispatchSystem chooses jobs for bugs to do.
+    """
+    def __init__(self, stage):
+        self._bugs = []
+        self._stage = stage
+
+    def add(self, bug):
+        self._bugs.append(bug)
+
+    def update(self):
+        """
+        Only run this once every turn (not every frame).
+        """
+        i = 0
+        for bug in self._bugs:
+            if bug.task:
+                bug.task.enact()
+            elif bug.hunger >= bug.hunger_threshold:
+                # Find a piece of food the bug can reach.
+                def is_valid_food(entity, a, b):
+                    kind = entity.kind
+                    x, y = entity.location
+                    return bug.partition[y][x] and kind == 'fish'
+
+                entity, loc = self._stage.find_entity(is_valid_food)
+                  
+                if entity:
+                    def forget_task(bug):
+                        bug.task = None
+
+                    def eat_food(bug, entity):
+                        bug.task = TaskEat(self._stage, 
+                                           bug, entity,
+                                           interrupted_proc=\
+                                             partial(forget_task, bug),
+                                           finished_proc=\
+                                             partial(forget_task, bug))
+
+                    # Make the bug go eat the food.
+                    # bug - TaskGo doesn't recover if the object is
+                    #       stolen by another unit
+                    bug.task = TaskGo(self._stage, bug, entity.location, 
+                                      blocked_proc=partial(forget_task, bug),
+                                      finished_proc=partial(eat_food, bug, entity))
+            bug.hunger += 1
+            i += 1
+
+class BugDrawSystem(object):
+    def __init__(self):
+        self._bugs = []
+
+    def update(self, screen, tileset, camera_x, camera_y):
+        for bug in self._bugs:
+            screen.blit(tileset,
+                        (bug.x * 16 - camera_x + MENU_WIDTH,
+                         bug.y * 16 - camera_y),
+                        (7 * 16, 0, 16, 16))
+
+    def add(self, bug):
+        self._bugs.append(bug)
+
+
+class Bug(object):
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+        self.hunger = 0
+        self.hunger_threshold = 20
+        self.task = None
+        self.partition = None
 
 
 class Penguin(object):
@@ -241,8 +315,11 @@ class Penguin(object):
                                  impossible_proc=nowhere_to_dump_error,
                                  finished_proc=drop_and_finish)
                         self._current_task = task
+                    
+                    def relinquish_and_finish():
+                        self._finish_job_entirely()
 
-                    def drop_and_finish():
+                    def try_storing_it():
                         occupier = self._stage.entity_at(
                                      (self.x, self.y))
                         if occupier:
@@ -253,7 +330,7 @@ class Penguin(object):
                         else:
                             task = TaskDrop(self._stage, self,
                                             finished_proc=\
-                                              self._finish_job_entirely)
+                                              relinquish_and_finish)
                         self._current_task = task
 
                     def go_to_stock_slot():
@@ -269,12 +346,14 @@ class Penguin(object):
                             task = TaskGo(self._stage, self,
                                           self._current_job.slot_location,
                                           blocked_proc=drop_and_forget,
-                                          finished_proc=drop_and_finish)
+                                          finished_proc=try_storing_it)
                             self._current_task = task
                     
                     def pick_up_and_go():
                         task = TaskTake(self._stage,
                                         self, entity,
+                                        not_found_proc=\
+                                          self._forget_job,
                                         finished_proc=\
                                           go_to_stock_slot)
                         self._current_task = task
@@ -361,9 +440,11 @@ if __name__ == '__main__':
     stockpiles = [Stockpile(stage, (50, 50, 4, 4),
                             jobs, ['fish'])]
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
+    mobs = []
     penguins = []
     timeslice = 0
     ident = 0
+
     for x, y in penguin_offsets:
         penguins.append(Penguin(ident, stage,
                                 math.floor(player_start_x / 16) + x,
@@ -372,7 +453,23 @@ if __name__ == '__main__':
                                 stopwatch, stockpiles))
         ident += 1
 
-    partition_system = PartitionSystem(stage, penguins)
+    mobs += penguins
+
+    bugs = [Bug(51, 50),
+            Bug(52, 50),
+            Bug(53, 50),
+            Bug(54, 50)]
+
+    mobs += bugs
+
+    bug_dispatch_system = BugDispatchSystem(stage)
+    bug_draw_system = BugDrawSystem()
+
+    for bug in bugs:
+        bug_dispatch_system.add(bug)
+        bug_draw_system.add(bug)
+
+    partition_system = PartitionSystem(stage, mobs)
 
     drag_origin = None
     block_origin = None
@@ -381,6 +478,7 @@ if __name__ == '__main__':
     selected_tool = 'cursor'
 
 
+    subturn = 0
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
     while True:
@@ -409,6 +507,13 @@ if __name__ == '__main__':
                                 print('Entity:', ent.kind)
                                 print('  location:', ent.location)
                                 print('  reserved:', ent.reserved)
+                            for penguin in penguins:
+                                if (penguin.x, penguin.y) == (tx, ty):
+                                    print('Penguin:')
+                                    if penguin._current_job:
+                                        print('  job:', penguin._current_job.__class__.__name__)
+                                    else:
+                                        print('  job: none')
                         elif selected_tool == 'mine' \
                              or selected_tool == 'stockpile':
                             tx = math.floor((camera_x + mx
@@ -515,6 +620,9 @@ if __name__ == '__main__':
         for penguin in penguins:
             penguin.update()
 
+        if subturn == 0:
+            bug_dispatch_system.update()
+
         # Clear the screen.
         virtual_screen.fill((0, 0, 0))
 
@@ -527,6 +635,9 @@ if __name__ == '__main__':
         # Draw stockpiles.
         for pile in stockpiles:
             pile.draw(virtual_screen, tileset, camera_x, camera_y)
+
+        # Draw bugs.
+        bug_draw_system.update(virtual_screen, tileset, camera_x, camera_y)
 
         # Hilight MineJob designated areas.
         for job in filter(lambda x: isinstance(x, MineJob), jobs):
@@ -595,5 +706,6 @@ if __name__ == '__main__':
         pygame.display.flip();
 
         # Wait for the next frame.
+        subturn = (subturn + 1) % 10
         stopwatch.tick()
         clock.tick(40)
