@@ -52,7 +52,7 @@ Just run:
 ## Screenshots
 
 ### Commit 0c96592a2e70ea08f9cc421e08f9d2ef74916498
-![In this picture of the game, many penguins are moving fish into a stockpile.  On the south end of the screen are many fish bodies laying on the snow.](screen1.png)
+![In this picture of the game, many penguins are moving fish into a stockpile.  On the south end of the screen are many fish bodies laying on the snow.](screen4.png)
 
 
 ### Before Commit 0c96592a2e70ea08f9cc421e08f9d2ef74916498
