@@ -184,17 +184,18 @@ class TaskGoToAnyMatchingSpot(object):
             self._impossible_proc()
             return
 
-        # If the unit is already at its goal, just finish the task.
         self._target = self._path[-1]
         assert self._target_is_reachable(), \
                'destination tile is unreachable'
 
-        target = self._target
-        self._target_is_solid = \
-          tile_is_solid(stage.get_tile_at(target[0], target[1]))
+        # If the unit is already at its goal, just finish the task.
         if (unit.x, unit.y) == self._target:
             self._finished_proc()
             return
+
+        target = self._target
+        self._target_is_solid = \
+          tile_is_solid(stage.get_tile_at(target[0], target[1]))
 
     def _target_is_reachable(self):
         tx, ty = self._target

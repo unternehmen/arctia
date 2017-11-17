@@ -226,7 +226,11 @@ class Penguin(object):
                               not tile_is_solid( \
                                     self._stage.get_tile_at( \
                                       spot[0], spot[1]))
-                            return no_entities and not_solid
+                            not_in_stock = spot[0] < stock.x \
+                                           or spot[0] >= stock.x + stock.w \
+                                           or spot[1] < stock.y \
+                                           or spot[1] >= stock.y + stock.h
+                            return no_entities and not_solid and not_in_stock
                         task = TaskGoToAnyMatchingSpot(
                                  self._stage, self, spot_is_empty,
                                  impossible_proc=nowhere_to_dump_error,
