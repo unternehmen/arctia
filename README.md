@@ -63,6 +63,14 @@ Just run:
 ![In this picture of the game, the penguins are still digging holes, but the focus of the image is on the ground to their south which is littered with rubble.](screen3.png)
 
 ## License
+This is free and unencumbered software released into the public domain.
+
+Anyone is free to copy, modify, publish, use, compile, sell, or
+distribute this software, either in source code form or as a compiled
+binary, for any purpose, commercial or non-commercial, and by any
+means.
+
+For more information, see the LICENSE file included in this project
+or refer to <http://unlicense.org>
+
 ♡2017 by unternehmen.  Copying is an act of love.
-Feel free to copy, remix, and share this work.
-(No need to give credit!)
