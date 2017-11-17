@@ -1,6 +1,14 @@
 from config import *
 
 class Stockpile(object):
+    def __init__(self, stage, rect, jobs, accepted_kinds):
+        self.x, self.y, self.w, self.h = rect
+        self.accepted_kinds = accepted_kinds
+        self._stage = stage
+        self._reservations = [[False
+                               for x in range(self.x, self.x + self.w)]
+                              for y in range(self.y, self.y + self.h)]
+
     def _detect_acceptable_item_at(self, x, y):
         tid = self._stage.get_tile_at(x, y)
 
@@ -14,22 +22,34 @@ class Stockpile(object):
 
         return kind in self.accepted_kinds
 
-    def __init__(self, stage, rect, jobs, accepted_kinds):
-        self.x, self.y, self.w, self.h = rect
-        self.accepted_kinds = accepted_kinds
-        self._stage = stage
-        self._reservations = [[False
-                               for x in range(self.x, self.x + self.w)]
-                              for y in range(self.y, self.y + self.h)]
+    def _entity_at(self, relative_location):
+        """
+        Return the entity which is at a location relative to the pile.
+
+        Arguments:
+            location: the location as an (x, y) tuple
+
+        Returns:
+            the entity if there is one, otherwise None
+        """
+        x, y = relative_location
+        return self._stage.entity_at((self.x + x, self.y + y))
+
+    def _slot_is_reserved(self, relative_location):
+        """
+        Return whether a slot at some location is reserved.
+        """
+        x, y = relative_location
+        return self._reservations[y][x]
 
     @property
     def full(self):
         for y in range(self.h):
             for x in range(self.w):
-                if self._reservations[y][x]:
+                if self._slot_is_reserved((x, y)):
                     continue
 
-                entity = self._stage.entity_at((self.x + x, self.y + y))
+                entity = self._entity_at((x, y))
 
                 if not entity or entity.kind not in self.accepted_kinds:
                     return False
@@ -47,10 +67,10 @@ class Stockpile(object):
     def reserve_slot(self):
         for y in range(self.h):
             for x in range(self.w):
-                if self._reservations[y][x]:
+                if self._slot_is_reserved((x, y)):
                     continue
 
-                entity = self._stage.entity_at((self.x + x, self.y + y))
+                entity = self._entity_at((x, y))
 
                 if not entity or entity.kind not in self.accepted_kinds:
                     self._reservations[y][x] = True
@@ -60,6 +80,7 @@ class Stockpile(object):
                       "but none are available!"
 
     def relinquish_slot(self, location):
-        x, y = location
-        assert self._reservations[y - self.y][x - self.x]
-        self._reservations[y - self.y][x - self.x] = False
+        x, y = location[0] - self.x, \
+               location[1] - self.y
+        assert self._slot_is_reserved((x, y))
+        self._reservations[y][x] = False

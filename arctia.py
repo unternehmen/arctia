@@ -13,7 +13,6 @@ from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat
-from stopwatch import Stopwatch
 
 from astar import astar
 from partition import partition
@@ -150,7 +149,7 @@ class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
     """
-    def __init__(self, ident, stage, x, y, jobs, stopwatch, stockpiles):
+    def __init__(self, ident, stage, x, y, jobs, stockpiles):
         """
         Create a new Penguin.
 
@@ -160,7 +159,6 @@ class Penguin(object):
             x: the x coordinate of the penguin
             y: the y coordinate of the penguin
             jobs: the global list of Jobs
-            stopwatch: the global Stopwatch
             stockpiles: the global list of Stockpiles
 
         Returns: a new Penguin
@@ -178,9 +176,6 @@ class Penguin(object):
 
         # The partition of the stage that this penguin can reach
         self.partition = None
-
-        # Stopwatch cookie for scheduling the penguin's turns
-        self._cookie = stopwatch.start()
 
         ## Gameplay stats
         # The penguin's hunger (0 = full, >40 = hungry, >80 = starving)
@@ -204,7 +199,6 @@ class Penguin(object):
 
         ## External data
         self._stage = stage
-        self._stopwatch = stopwatch
         self._stockpiles = stockpiles
         self._jobs = jobs
 
@@ -316,9 +310,6 @@ class Penguin(object):
                                  finished_proc=drop_and_finish)
                         self._current_task = task
                     
-                    def relinquish_and_finish():
-                        self._finish_job_entirely()
-
                     def try_storing_it():
                         occupier = self._stage.entity_at(
                                      (self.x, self.y))
@@ -330,7 +321,7 @@ class Penguin(object):
                         else:
                             task = TaskDrop(self._stage, self,
                                             finished_proc=\
-                                              relinquish_and_finish)
+                                              self._finish_job_entirely)
                         self._current_task = task
 
                     def go_to_stock_slot():
@@ -389,28 +380,22 @@ class Penguin(object):
         self._path_to_current_job = None
         self._look_for_job()
 
-    def _take_turn(self):
-        """
-        Make the Penguin take a turn.
-        """
-        # Get hungrier.
-        self._hunger += 1
-
-        if self._current_task:
-            self._current_task.enact()
-
     def update(self):
         """
         Update the state of the Penguin.
 
-        This should be called every frame before drawing.
+        This should only be called once every turn.
         """
+        # Find a job if we don't have one.
         if self._current_job is None:
             self._look_for_job()
 
-        if self._stopwatch.measure(self._cookie) == 10:
-            self._cookie = self._stopwatch.start()
-            self._take_turn()
+        # Get hungrier.
+        self._hunger += 1
+
+        # If we have a task, do it.
+        if self._current_task:
+            self._current_task.enact()
 
 
 if __name__ == '__main__':
@@ -434,7 +419,6 @@ if __name__ == '__main__':
         kind, x, y = entity
         if kind == 'fish':
             jobs.append(HaulJob(entity))
-    stopwatch = Stopwatch()
 
     # for now, stockpiles will be just for fish...
     stockpiles = [Stockpile(stage, (50, 50, 4, 4),
@@ -450,7 +434,7 @@ if __name__ == '__main__':
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
                                 jobs,
-                                stopwatch, stockpiles))
+                                stockpiles))
         ident += 1
 
     mobs += penguins
@@ -616,11 +600,11 @@ if __name__ == '__main__':
             if job.done:
                 jobs.remove(job)
 
-        # Update the game state.
-        for penguin in penguins:
-            penguin.update()
-
+        # Update the game state every turn.
         if subturn == 0:
+            for penguin in penguins:
+                penguin.update()
+
             bug_dispatch_system.update()
 
         # Clear the screen.
@@ -707,5 +691,4 @@ if __name__ == '__main__':
 
         # Wait for the next frame.
         subturn = (subturn + 1) % 10
-        stopwatch.tick()
         clock.tick(40)
