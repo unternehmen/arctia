@@ -387,11 +387,18 @@ class Penguin(object):
                         # Unreserve the object we picked up.
                         self._held_entity.relinquish()
 
+                        # Only continue if the stockpile still exsits.
+                        if not self._current_job.stockpile \
+                               in self._stockpiles:
+                            drop_and_forget()
+                            return
+
                         # Check if we can reach the stockpile.
                         sx = self._current_job.stockpile.x
                         sy = self._current_job.stockpile.y
                         if not self.partition[sy][sx]:
-                            drop_and_finish()
+                            drop_and_forget()
+                            return
                         else:
                             task = TaskGo(self._stage, self,
                                           self._current_job.slot_location,
@@ -517,7 +524,7 @@ if __name__ == '__main__':
     drag_origin = None
     block_origin = None
 
-    tools = ['cursor', 'mine', 'haul', 'stockpile']
+    tools = ['cursor', 'mine', 'haul', 'stockpile', 'delete-stockpile']
     selected_tool = 'cursor'
 
 
@@ -564,6 +571,17 @@ if __name__ == '__main__':
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
                             block_origin = tx, ty
+                        elif selected_tool == 'delete-stockpile':
+                            # Delete the chosen stockpile
+                            tx = math.floor((camera_x + mx
+                                             - MENU_WIDTH)
+                                            / 16)
+                            ty = math.floor((camera_y + my) / 16)
+                            for stock in stockpiles:
+                                if stock.x <= tx < stock.x + stock.w \
+                                   and stock.y <= ty < stock.y + stock.h:
+                                    stockpiles.remove(stock)
+                                    break
                 elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = math.floor(event.pos[0] \
