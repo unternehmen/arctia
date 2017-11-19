@@ -19,6 +19,18 @@ from astar import astar
 from partition import partition
 
 class PartitionSystem(object):
+    """
+    A PartitionSystem updates the partition matrix of units.
+
+    A partition matrix shows whether a unit can reach a location
+    given its movement constraints.  This makes testing reachability
+    an O(1) operation so long as the partition matrices of all units
+    is up-to-date.
+
+    Arguments:
+        stage: the stage
+        mobs: the list of units
+    """
     def __init__(self, stage, mobs):
         self._mobs = mobs
         self._stage = stage
@@ -28,6 +40,14 @@ class PartitionSystem(object):
         self.refresh()
 
     def tile_changed(self, prev_id, cur_id, coords):
+        """
+        Notify the PartitionSystem that a tile has changed.
+
+        Arguments:
+            prev_id: the previous ID of the changed tile
+            cur_id: the current ID of the changed tile
+            coords: the (x, y) coordinates of the changed tile
+        """
         x, y = coords
 
         # Determine which mobs need partition refreshs.
@@ -69,6 +89,9 @@ class PartitionSystem(object):
                 parts.append(part)
 
     def refresh(self):
+        """
+        Update the partition matrices of all mobs.
+        """
         self._refresh_partial(self._mobs)
 
 
