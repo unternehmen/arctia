@@ -1,6 +1,7 @@
 from common import tile_is_solid
 from astar import astar
 from breadth import find_path_to_matching
+import random
 
 # A Task is a unitary action that a unit should take.
 # Once a task is complete, it can run code to decide what
@@ -29,11 +30,7 @@ class TaskGo(object):
         self._blocked_proc = blocked_proc
         self._finished_proc = finished_proc
         self._stage = stage
-
-        # If the unit is already at its goal, just finish the task.
-        if (unit.x, unit.y) == target:
-            self._finished_proc()
-            return
+        self._finished = False
 
         assert self._target_is_reachable(), \
                'destination tile is unreachable'
@@ -46,10 +43,21 @@ class TaskGo(object):
         return self._unit.partition[ty][tx]
 
     def enact(self):
+        assert not self._finished, \
+               'task enacted after it was finished'
+
+        # If we have reached the goal, just finish the task.
+        if (self._unit.x, self._unit.y) == self._target:
+            # We have reached the goal, so finish the task.
+            self._finished = True
+            self._finished_proc()
+            return
+
         # bug - if we are after an object and the object becomes
         #       unreachable, that should count as a block!
         # If the target is not reachable, call blocked_proc.
         if not self._target_is_reachable():
+            self._finished = True
             self._blocked_proc()
             return
 
@@ -57,13 +65,10 @@ class TaskGo(object):
         x, y = unit.x, unit.y
         path = self._path
 
-        if len(path) == 0:
-            # We have reached the goal, so finish the task.
-            self._finished_proc()
-            return
-        elif self._target_is_solid and len(path) == 1:
+        if self._target_is_solid and len(path) == 1:
             # The target is solid and we've reached it,
             # so finish the task.
+            self._finished = True
             self._finished_proc()
             return
 
@@ -114,7 +119,14 @@ class TaskMine(object):
 
         self._work_left -= 1
         if self._work_left == 0:
-            self._stage.set_tile_at(tx, ty, 1)
+            # Turn the mountain into a dirt tile.
+            self._stage.set_tile_at(tx, ty, 18)
+
+            # 50% chance of rock appearing
+            if random.randint(0, 1) == 0:
+                self._stage.create_entity('rock', (tx, ty))
+
+            # Finish the mining task
             self._finished_proc()
             return
 

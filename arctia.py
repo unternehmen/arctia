@@ -113,7 +113,6 @@ class BugDispatchSystem(object):
         def forget_task(bug):
             bug.task = None
 
-        i = 0
         for bug in self._bugs:
             if bug.task:
                 bug.task.enact()
@@ -170,16 +169,15 @@ class BugDispatchSystem(object):
                     # Go to our goal position.
                     bug.task = TaskGo(self._stage, bug, goal,
                                       delay=bug.wandering_delay,
-                                      blocked_proc=partial(forget_task,
-                                                           bug),
-                                      finished_proc=partial(forget_task,
-                                                            bug))
+                                      blocked_proc=\
+                                        partial(forget_task, bug),
+                                      finished_proc=\
+                                        partial(forget_task, bug))
                 elif selected == 'brooding':
                     bug.task = TaskWait(duration=bug.brooding_duration,
                                         finished_proc=\
                                           partial(forget_task, bug))
             bug.hunger += 1
-            i += 1
 
 class BugDrawSystem(object):
     def __init__(self):
