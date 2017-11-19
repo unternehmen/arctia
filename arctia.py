@@ -101,9 +101,11 @@ class BugDispatchSystem(object):
                     x, y = entity.location
                     return bug.partition[y][x] and kind == 'fish'
 
-                entity, loc = self._stage.find_entity(is_valid_food)
+                result = self._stage.find_entity(is_valid_food)
                   
-                if entity:
+                if result:
+                    entity, loc = result
+
                     def eat_food(bug, entity):
                         bug.task = TaskEat(self._stage, 
                                            bug, entity,
@@ -135,9 +137,11 @@ class BugDispatchSystem(object):
                                                 (1, 0), (1, 1)])
                         shifted = goal[0] + offset[0], \
                                   goal[1] + offset[1]
-                        if not tile_is_solid(
-                                 self._stage.get_tile_at(
-                                   *shifted)):
+                        if 0 <= goal[0] <= self._stage.width \
+                           and 0 <= goal[1] <= self._stage.height \
+                           and not tile_is_solid(
+                                     self._stage.get_tile_at(
+                                       *shifted)):
                             goal = shifted
 
                     # Go to our goal position.
@@ -174,7 +178,7 @@ class Bug(object):
         self.x = x
         self.y = y
         self.hunger = 0
-        self.hunger_threshold = 20
+        self.hunger_threshold = 50
         self.wandering_delay = 1
         self.brooding_duration = 6
         self.task = None
