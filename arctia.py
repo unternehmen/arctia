@@ -160,8 +160,8 @@ class BugDispatchSystem(object):
                                                 (1, 0), (1, 1)])
                         shifted = goal[0] + offset[0], \
                                   goal[1] + offset[1]
-                        if 0 <= goal[0] <= self._stage.width \
-                           and 0 <= goal[1] <= self._stage.height \
+                        if 0 <= goal[0] < self._stage.width \
+                           and 0 <= goal[1] < self._stage.height \
                            and not tile_is_solid(
                                      self._stage.get_tile_at(
                                        *shifted)):
