@@ -487,8 +487,7 @@ if __name__ == '__main__':
             jobs.append(HaulJob(entity))
 
     # for now, stockpiles will be just for fish...
-    stockpiles = [Stockpile(stage, (50, 50, 4, 4),
-                            jobs, ['fish'])]
+    stockpiles = []
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     mobs = []
     penguins = []
