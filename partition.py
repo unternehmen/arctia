@@ -14,7 +14,6 @@ def partition(stage, location):
         an m-by-n array of bools in which True means a location
         is reachable and False means the location is unreachable
     """
-    #print('Partitioning...')
     lx, ly = location
 
     assert 0 <= lx < stage.width

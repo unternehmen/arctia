@@ -14,12 +14,15 @@ class TaskGo(object):
         stage:         the Stage containing the unit
         unit:          the unit (e.g., Penguin) whose task this
         target:        the target position as a pair of x-y coordinates
+        delay:         the number of turns to delay between steps
         blocked_proc:  the procedure to run if the path is broken
         finished_proc: the procedure to run if the task is finished
     """
-    def __init__(self, stage, unit, target,
-                 blocked_proc, finished_proc):
+    def __init__(self, stage, unit, target, delay=0,
+                 blocked_proc=None, finished_proc=None):
         self._unit = unit
+        self._delay = delay
+        self._timer = 0
         self._target = target
         self._target_is_solid = \
           tile_is_solid(stage.get_tile_at(target[0], target[1]))
@@ -64,20 +67,23 @@ class TaskGo(object):
             self._finished_proc()
             return
 
-        dx, dy = (self._path[0][0] - x, self._path[0][1] - y)
-        assert -1 <= dx <= 1
-        assert -1 <= dy <= 1
+        if self._timer == 0:
+            dx, dy = (self._path[0][0] - x, self._path[0][1] - y)
+            assert -1 <= dx <= 1
+            assert -1 <= dy <= 1
 
-        if not tile_is_solid(self._stage.get_tile_at(x + dx, y + dy)):
-            # Step toward the target.
-            unit.x += dx
-            unit.y += dy
-            self._path = path[1:]
-        else:
-            # The path was blocked, so calculate a new path.
-            self._path = astar(self._stage,
-                               (unit.x, unit.y),
-                               self._target)
+            if not tile_is_solid(self._stage.get_tile_at(x + dx, y + dy)):
+                # Step toward the target.
+                unit.x += dx
+                unit.y += dy
+                self._path = path[1:]
+            else:
+                # The path was blocked, so calculate a new path.
+                self._path = astar(self._stage,
+                                   (unit.x, unit.y),
+                                   self._target)
+        if self._delay > 0:
+            self._timer = (self._timer + 1) % (self._delay + 1)
 
 class TaskMine(object):
     """
@@ -317,4 +323,35 @@ class TaskEat(object):
             self._stage.delete_entity(self._entity)
             self._finished_proc()
             self._finished = True
+            return
+
+class TaskWait(object):
+    """
+    A TaskWait represents waiting without moving for some span of time.
+    
+    Arguments:
+        duration:      the amount of turns to wait
+        finished_proc: the procedure to run after this task is done
+    """
+    def __init__(self, duration, finished_proc):
+        assert duration >= 0, 'duration must be >= 0, not ' + duration
+
+        self._duration = duration
+        self._timer = 0
+        self._finished_proc = finished_proc
+        self._finished = False
+        pass
+
+    def enact(self):
+        """
+        Enact the task, i.e., make the unit carry it out.
+        """
+        assert not self._finished, \
+               'task enacted after it was finished'
+
+        self._timer += 1
+
+        if self._timer == self._duration:
+            self._finished = True
+            self._finished_proc()
             return

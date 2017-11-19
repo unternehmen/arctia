@@ -5,6 +5,7 @@ import sys
 import os
 import pytmx
 import math
+import random
 from functools import partial
 
 from config import *
@@ -12,7 +13,7 @@ from common import *
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
-from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat
+from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat, TaskWait
 
 from astar import astar
 from partition import partition
@@ -86,6 +87,9 @@ class BugDispatchSystem(object):
         """
         Only run this once every turn (not every frame).
         """
+        def forget_task(bug):
+            bug.task = None
+
         i = 0
         for bug in self._bugs:
             if bug.task:
@@ -100,9 +104,6 @@ class BugDispatchSystem(object):
                 entity, loc = self._stage.find_entity(is_valid_food)
                   
                 if entity:
-                    def forget_task(bug):
-                        bug.task = None
-
                     def eat_food(bug, entity):
                         bug.task = TaskEat(self._stage, 
                                            bug, entity,
@@ -113,10 +114,43 @@ class BugDispatchSystem(object):
 
                     # Make the bug go eat the food.
                     # bug - TaskGo doesn't recover if the object is
-                    #       stolen by another unit
+                    #       stolen by another unit (?)
                     bug.task = TaskGo(self._stage, bug, entity.location, 
                                       blocked_proc=partial(forget_task, bug),
                                       finished_proc=partial(eat_food, bug, entity))
+            else:
+                # Choose whether to brood or to wander.
+                choices = ['wandering', 'brooding']
+                available = map(lambda a: a in bug.components, choices)
+                selected = random.choice(choices)
+
+                if selected == 'wandering':
+                    # Step wildly to find a goal for our wandering.
+                    goal = bug.x, bug.y
+
+                    for step in range(40):
+                        offset = random.choice([(-1, -1), (-1, 0),
+                                                (-1, 1), (0, -1),
+                                                (0, 1), (1, -1),
+                                                (1, 0), (1, 1)])
+                        shifted = goal[0] + offset[0], \
+                                  goal[1] + offset[1]
+                        if not tile_is_solid(
+                                 self._stage.get_tile_at(
+                                   *shifted)):
+                            goal = shifted
+
+                    # Go to our goal position.
+                    bug.task = TaskGo(self._stage, bug, goal,
+                                      delay=bug.wandering_delay,
+                                      blocked_proc=partial(forget_task,
+                                                           bug),
+                                      finished_proc=partial(forget_task,
+                                                            bug))
+                elif selected == 'brooding':
+                    bug.task = TaskWait(duration=bug.brooding_duration,
+                                        finished_proc=\
+                                          partial(forget_task, bug))
             bug.hunger += 1
             i += 1
 
@@ -141,8 +175,11 @@ class Bug(object):
         self.y = y
         self.hunger = 0
         self.hunger_threshold = 20
+        self.wandering_delay = 1
+        self.brooding_duration = 6
         self.task = None
         self.partition = None
+        self.components = ['eating', 'wandering', 'brooding']
 
 
 class Penguin(object):
@@ -182,9 +219,6 @@ class Penguin(object):
         self._hunger = 0
 
         ## Job data
-        # Amount of work left (in turns) for the current job
-        self._work_left = 0
-
         # Entity held by the penguin for a drop-job
         self._held_entity = None
 
