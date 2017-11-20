@@ -341,28 +341,31 @@ class Penguin(object):
                             self._current_job.slot_location)
                         self._forget_job()
 
-                    def drop_and_forget():
+                    def drop_and_finish():
                         task = TaskDrop(self._stage, self,
+                                        blocked_proc=\
+                                          dump_somewhere,
                                         finished_proc=\
-                                            cancel_haul)
+                                          self._finish_job_entirely)
                         self._current_task = task
+
+                    def spot_is_empty(spot):
+                        no_entities = \
+                          self._stage.entity_at(spot) is None
+                        not_solid = \
+                          not tile_is_solid( \
+                                self._stage.get_tile_at( \
+                                  spot[0], spot[1]))
+                        not_in_stock = spot[0] < stock.x \
+                                       or spot[0] >= stock.x + stock.w \
+                                       or spot[1] < stock.y \
+                                       or spot[1] >= stock.y + stock.h
+                        return no_entities and not_solid and not_in_stock
 
                     def nowhere_to_dump_error():
                         assert False, 'penguin could not find anywhere to dump an object'
 
                     def dump_somewhere():
-                        def spot_is_empty(spot):
-                            no_entities = \
-                              self._stage.entity_at(spot) is None
-                            not_solid = \
-                              not tile_is_solid( \
-                                    self._stage.get_tile_at( \
-                                      spot[0], spot[1]))
-                            not_in_stock = spot[0] < stock.x \
-                                           or spot[0] >= stock.x + stock.w \
-                                           or spot[1] < stock.y \
-                                           or spot[1] >= stock.y + stock.h
-                            return no_entities and not_solid and not_in_stock
                         task = TaskGoToAnyMatchingSpot(
                                  self._stage, self, spot_is_empty,
                                  impossible_proc=nowhere_to_dump_error,
@@ -379,6 +382,8 @@ class Penguin(object):
                                                  dump_somewhere)
                         else:
                             task = TaskDrop(self._stage, self,
+                                            blocked_proc=\
+                                              None,
                                             finished_proc=\
                                               self._finish_job_entirely)
                         self._current_task = task
@@ -390,19 +395,19 @@ class Penguin(object):
                         # Only continue if the stockpile still exsits.
                         if not self._current_job.stockpile \
                                in self._stockpiles:
-                            drop_and_forget()
+                            drop_and_finish()
                             return
 
                         # Check if we can reach the stockpile.
                         sx = self._current_job.stockpile.x
                         sy = self._current_job.stockpile.y
                         if not self.partition[sy][sx]:
-                            drop_and_forget()
+                            drop_and_finish()
                             return
                         else:
                             task = TaskGo(self._stage, self,
                                           self._current_job.slot_location,
-                                          blocked_proc=drop_and_forget,
+                                          blocked_proc=drop_and_finish,
                                           finished_proc=try_storing_it)
                             self._current_task = task
                     
@@ -550,19 +555,29 @@ if __name__ == '__main__':
                                              - MENU_WIDTH)
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
+                            print('***')
                             #stage.set_tile_at(tx, ty, 2)
                             ent = stage.entity_at((tx, ty))
                             if ent:
-                                print('Entity:', ent.kind)
-                                print('  location:', ent.location)
-                                print('  reserved:', ent.reserved)
+                                print('  Entity:', ent.kind)
+                                print('    location:', ent.location)
+                                print('    reserved:', ent.reserved)
                             for penguin in penguins:
                                 if (penguin.x, penguin.y) == (tx, ty):
-                                    print('Penguin:')
+                                    print('  Penguin:')
                                     if penguin._current_job:
-                                        print('  job:', penguin._current_job.__class__.__name__)
+                                        print('    job:', penguin._current_job.__class__.__name__)
                                     else:
-                                        print('  job: none')
+                                        print('    job: none')
+                            for stock in stockpiles:
+                                if stock.x <= tx < stock.x + stock.w \
+                                   and stock.y <= ty < stock.y + stock.h:
+                                    print('  Stock slot: ', end='')
+                                    if stock._reservations[ty - stock.y][tx - stock.x]:
+                                        print('reserved')
+                                    else:
+                                        print('free')
+                                    break
                         elif selected_tool == 'mine' \
                              or selected_tool == 'stockpile':
                             tx = math.floor((camera_x + mx
