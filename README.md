@@ -51,6 +51,10 @@ Just run:
 
 ## Screenshots
 
+### Commit 96698a3352e01aaff8c70d986c122655b199061d
+![In this picture of the game, many penguins are standing in a cave with a pile of fish in one corner.  A hungry, purple insect is approaching the cave entrance.](screen5.png)
+
+
 ### Commit 0c96592a2e70ea08f9cc421e08f9d2ef74916498
 ![In this picture of the game, many penguins are moving fish into a stockpile.  On the south end of the screen are many fish bodies laying on the snow.](screen4.png)
 
