@@ -79,6 +79,12 @@ class HaulJob(Job):
         self.stockpile.relinquish_slot(self.slot_location)
         super().finish()
 
+    def relinquish(self):
+        super().relinquish()
+
+        if self.stockpile and self.slot_location:
+            self.stockpile.relinquish_slot(self.slot_location)
+
     @property
     def locations(self):
         return [self.entity.location]
