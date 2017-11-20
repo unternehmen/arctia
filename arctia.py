@@ -116,7 +116,8 @@ class BugDispatchSystem(object):
         for bug in self._bugs:
             if bug.task:
                 bug.task.enact()
-            elif bug.hunger >= bug.hunger_threshold:
+            
+            if not bug.task and bug.hunger >= bug.hunger_threshold:
                 # Find a piece of food the bug can reach.
                 def is_valid_food(entity, a, b):
                     kind = entity.kind
@@ -142,7 +143,8 @@ class BugDispatchSystem(object):
                     bug.task = TaskGo(self._stage, bug, entity.location, 
                                       blocked_proc=partial(forget_task, bug),
                                       finished_proc=partial(eat_food, bug, entity))
-            else:
+
+            if not bug.task:
                 # Choose whether to brood or to wander.
                 choices = ['wandering', 'brooding']
                 available = map(lambda a: a in bug.components, choices)
@@ -177,7 +179,9 @@ class BugDispatchSystem(object):
                     bug.task = TaskWait(duration=bug.brooding_duration,
                                         finished_proc=\
                                           partial(forget_task, bug))
+
             bug.hunger += 1
+
 
 class BugDrawSystem(object):
     def __init__(self):
