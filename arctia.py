@@ -631,6 +631,10 @@ if __name__ == '__main__':
                         if selected_tool == 'mine':
                             for y in range(top, bottom + 1):
                                 for x in range(left, right + 1):
+                                    if x < 0 or x >= stage.width or \
+                                       y < 0 or y >= stage.height:
+                                        continue
+
                                     tid = stage.get_tile_at(x, y)
 
                                     if tid is None:
@@ -660,6 +664,11 @@ if __name__ == '__main__':
                             all_walkable = True
                             for y in range(top, bottom + 1):
                                 for x in range(left, right + 1):
+                                    if x < 0 or x >= stage.width or \
+                                       y < 0 or y >= stage.height:
+                                        all_walkable = False
+                                        break
+
                                     tid = stage.get_tile_at(x, y)
 
                                     if tid is None:
