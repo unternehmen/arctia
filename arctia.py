@@ -8,6 +8,7 @@ import math
 import random
 from functools import partial
 
+from bfont import BitmapFont
 from config import *
 from common import *
 from stage import Stage
@@ -483,6 +484,10 @@ if __name__ == '__main__':
     pygame.mixer.music.load(os.path.join('music', 'nescape.ogg'))
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
+    bfont = BitmapFont(
+              'ABCDEFGHIJKLMN',
+              pygame.image.load(
+                os.path.join('gfx', 'fawnt.png')))
 
     player_start_x, player_start_y = stage.get_player_start_pos()
     camera_x = player_start_x + 8 \
