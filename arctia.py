@@ -3,11 +3,8 @@ import atexit
 import sys
 import os
 import math
-import random
 
 import pygame
-import pytmx
-from functools import partial
 
 from transform import translate
 from bfont import BitmapFont
@@ -17,98 +14,8 @@ from camera import Camera
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
-from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat, TaskWait
-
-from systems import PartitionUpdateSystem
-
-from astar import astar
-
-class BugDispatchSystem(object):
-    """
-    A BugDispatchSystem chooses jobs for bugs to do.
-    """
-    def __init__(self, stage):
-        self._bugs = []
-        self._stage = stage
-
-    def add(self, bug):
-        self._bugs.append(bug)
-
-    def update(self):
-        """
-        Only run this once every turn (not every frame).
-        """
-        def forget_task(bug):
-            bug.task = None
-
-        for bug in self._bugs:
-            if bug.task:
-                bug.task.enact()
-            
-            if not bug.task and bug.hunger >= bug.hunger_threshold:
-                # Find a piece of food the bug can reach.
-                def is_valid_food(entity, a, b):
-                    kind = entity.kind
-                    x, y = entity.location
-                    return bug.partition[y][x] and kind == 'fish'
-
-                result = self._stage.find_entity(is_valid_food)
-                  
-                if result:
-                    entity, loc = result
-
-                    def eat_food(bug, entity):
-                        bug.task = TaskEat(self._stage, 
-                                           bug, entity,
-                                           interrupted_proc=\
-                                             partial(forget_task, bug),
-                                           finished_proc=\
-                                             partial(forget_task, bug))
-
-                    # Make the bug go eat the food.
-                    # bug - TaskGo doesn't recover if the object is
-                    #       stolen by another unit (?)
-                    bug.task = TaskGo(self._stage, bug, entity.location, 
-                                      blocked_proc=partial(forget_task, bug),
-                                      finished_proc=partial(eat_food, bug, entity))
-
-            if not bug.task:
-                # Choose whether to brood or to wander.
-                choices = ['wandering', 'brooding']
-                available = map(lambda a: a in bug.components, choices)
-                selected = random.choice(choices)
-
-                if selected == 'wandering':
-                    # Step wildly to find a goal for our wandering.
-                    goal = bug.x, bug.y
-
-                    for step in range(40):
-                        offset = random.choice([(-1, -1), (-1, 0),
-                                                (-1, 1), (0, -1),
-                                                (0, 1), (1, -1),
-                                                (1, 0), (1, 1)])
-                        shifted = translate(goal, offset)
-                        if 0 <= shifted[0] < self._stage.width \
-                           and 0 <= shifted[1] < self._stage.height \
-                           and not tile_is_solid(
-                                     self._stage.get_tile_at(
-                                       *shifted)):
-                            goal = shifted
-
-                    # Go to our goal position.
-                    bug.task = TaskGo(self._stage, bug, goal,
-                                      delay=bug.wandering_delay,
-                                      blocked_proc=\
-                                        partial(forget_task, bug),
-                                      finished_proc=\
-                                        partial(forget_task, bug))
-                elif selected == 'brooding':
-                    bug.task = TaskWait(duration=bug.brooding_duration,
-                                        finished_proc=\
-                                          partial(forget_task, bug))
-
-            bug.hunger += 1
-
+from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
+from systems import BugDispatchSystem, PartitionUpdateSystem
 
 class BugDrawSystem(object):
     def __init__(self):
@@ -265,11 +172,6 @@ class Penguin(object):
                 if result:
                     entity, loc = result
                     x, y = loc
-
-                    def cancel_haul():
-                        self._current_job.stockpile.relinquish_slot(
-                            self._current_job.slot_location)
-                        self._forget_job()
 
                     def drop_and_finish():
                         task = TaskDrop(self._stage, self,

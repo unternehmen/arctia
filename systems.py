@@ -1,8 +1,13 @@
 """
 The systems module provides classes which update the game's state.
 """
+from functools import partial
+import random
+
+from common import tile_is_solid
 from partition import partition
 from transform import translate
+from task import TaskEat, TaskGo, TaskWait
 
 def _refresh_partitions_of_mobs(stage, mobs):
     # This currently assumes that all mobs have
@@ -81,3 +86,101 @@ class PartitionUpdateSystem(object):
         Update the partition matrices of all known mobs.
         """
         _refresh_partitions_of_mobs(self._stage, self._mobs)
+
+
+class BugDispatchSystem(object):
+    """
+    A BugDispatchSystem chooses jobs for bugs to do.
+
+    Arguments:
+        stage: the stage
+    """
+    def __init__(self, stage):
+        self._bugs = []
+        self._stage = stage
+
+    def add(self, bug):
+        """
+        Add a Bug whose jobs should be managed by this system.
+
+        Arguments:
+            bug: the Bug
+        """
+        self._bugs.append(bug)
+
+    def update(self):
+        """
+        Give jobs to all Bugs that need them.
+
+        Only run this once every turn (not every frame).
+        """
+        def _forget_task(bug):
+            bug.task = None
+
+        for bug in self._bugs:
+            if bug.task:
+                bug.task.enact()
+
+            if not bug.task and bug.hunger >= bug.hunger_threshold:
+                # Find a piece of food the bug can reach.
+                def _is_valid_food(bug, entity, _unused_x, _unused_y):
+                    kind = entity.kind
+                    x, y = entity.location
+                    return bug.partition[y][x] and kind == 'fish'
+
+                result = \
+                  self._stage.find_entity(partial(_is_valid_food, bug))
+
+                if result:
+                    entity, _ = result
+
+                    def _eat_food(bug, entity):
+                        bug.task = TaskEat(self._stage,
+                                           bug, entity,
+                                           interrupted_proc=\
+                                             partial(_forget_task, bug),
+                                           finished_proc=\
+                                             partial(_forget_task, bug))
+
+                    # Make the bug go eat the food.
+                    # bug - TaskGo doesn't recover if the object is
+                    #       stolen by another unit (?)
+                    bug.task = TaskGo(self._stage, bug, entity.location,
+                                      blocked_proc=partial(_forget_task, bug),
+                                      finished_proc=partial(_eat_food, bug, entity))
+
+            if not bug.task:
+                # Choose whether to brood or to wander.
+                choices = ['wandering', 'brooding']
+                selected = random.choice(choices)
+
+                if selected == 'wandering':
+                    # Step wildly to find a goal for our wandering.
+                    goal = bug.x, bug.y
+
+                    for _ in range(40):
+                        offset = random.choice([(-1, -1), (-1, 0),
+                                                (-1, 1), (0, -1),
+                                                (0, 1), (1, -1),
+                                                (1, 0), (1, 1)])
+                        shifted = translate(goal, offset)
+                        tile = self._stage.get_tile_at(*shifted)
+
+                        if 0 <= shifted[0] < self._stage.width \
+                           and 0 <= shifted[1] < self._stage.height \
+                           and not tile_is_solid(tile):
+                            goal = shifted
+
+                    # Go to our goal position.
+                    bug.task = TaskGo(self._stage, bug, goal,
+                                      delay=bug.wandering_delay,
+                                      blocked_proc=\
+                                        partial(_forget_task, bug),
+                                      finished_proc=\
+                                        partial(_forget_task, bug))
+                elif selected == 'brooding':
+                    bug.task = TaskWait(duration=bug.brooding_duration,
+                                        finished_proc=\
+                                          partial(_forget_task, bug))
+
+            bug.hunger += 1
