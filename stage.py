@@ -2,7 +2,7 @@ import math
 import random
 import pytmx
 from entity import Entity
-from config import *
+from config import SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT
 
 class Stage(object):
     def __init__(self, path):

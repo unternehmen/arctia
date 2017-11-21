@@ -1,7 +1,5 @@
-import math
-from common import tile_is_solid
-from stage import Stage
 from itertools import product
+from common import tile_is_solid
 
 def _2d_constant_array(width, height, value):
     return [[value for x in range(width)] for y in range(height)]

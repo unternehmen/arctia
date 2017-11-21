@@ -13,7 +13,7 @@ from common import *
 from camera import Camera
 from stage import Stage
 from stockpile import Stockpile
-from job import Job, HaulJob, MineJob
+from job import HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
 from systems import BugDispatchSystem, PartitionUpdateSystem
 

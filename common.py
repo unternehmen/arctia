@@ -1,3 +1,7 @@
+"""
+The common module provides functions used by most other modules.
+"""
+
 def tile_is_solid(tid):
     """
     Return whether a tile is solid or not based on its ID.
