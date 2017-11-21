@@ -46,7 +46,7 @@ class PartitionUpdateSystem(object):
 
         stage.register_tile_change_listener(self)
 
-        self.refresh()
+        self._refresh()
 
     def tile_changed(self, _unused_prev_id, _unused_cur_id, coords):
         """
@@ -82,11 +82,20 @@ class PartitionUpdateSystem(object):
         _refresh_partitions_of_mobs(self._stage, mobs_to_refresh)
 
 
-    def refresh(self):
+    def _refresh(self):
         """
         Update the partition matrices of all known mobs.
         """
         _refresh_partitions_of_mobs(self._stage, self._mobs)
+
+    def update(self):
+        """
+        Do nothing.
+
+        This method exists so that this class matches the interface of
+        other systems.
+        """
+        pass
 
 
 class BugDispatchSystem(object):
