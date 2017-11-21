@@ -1,5 +1,3 @@
-from config import *
-
 class Stockpile(object):
     def __init__(self, stage, rect, accepted_kinds):
         self.x, self.y, self.width, self.height = rect
@@ -55,13 +53,12 @@ class Stockpile(object):
                     return False
         return True
 
-    def draw(self, screen, tileset, camera_x, camera_y):
+    def draw(self, screen, tileset, camera):
         for y in range(self.y, self.y + self.height):
             for x in range(self.x, self.x + self.width):
                 screen.blit(tileset,
-                            (x * 16 - camera_x \
-                             + MENU_WIDTH,
-                             y * 16 - camera_y),
+                            camera.transform_game_to_screen(
+                                (x, y), scalar=16),
                             (176, 0, 16, 16))
 
     def reserve_slot(self):

@@ -1,7 +1,6 @@
-import pytmx
-import os
 import math
 import random
+import pytmx
 from entity import Entity
 from config import *
 
@@ -16,7 +15,7 @@ class Stage(object):
         self.data = [[0 for x in range(self.width)]
                      for y in range(self.height)]
         self.entity_matrix = [[None for x in range(self.width)]
-                            for y in range(self.height)]
+                              for y in range(self.height)]
         # The list of on-stage entities and their coordinates.
         # Contains tuples of the following format: (entity, x, y)
         self.entity_list = []
@@ -25,7 +24,7 @@ class Stage(object):
             tiled_map.get_object_by_name('Player Start')
         self.player_start_x = player_start_obj.x
         self.player_start_y = player_start_obj.y
-        
+
         self._tile_change_listeners = []
 
         self.entities = []
@@ -53,17 +52,17 @@ class Stage(object):
     def register_tile_change_listener(self, listener):
         self._tile_change_listeners.append(listener)
 
-    def _draw_tile_at(self, screen, tileset, camera_x, camera_y, loc):
+    def _draw_tile_at(self, screen, tileset, camera, loc):
         x, y = loc
         tid = self.data[y][x]
         tx = tid % 16
         ty = math.floor(tid / 16)
         screen.blit(tileset,
-                    (x * 16 - camera_x + MENU_WIDTH,
-                     y * 16 - camera_y),
+                    camera.transform_game_to_screen(
+                      (x, y), scalar=16),
                     (tx * 16, ty * 16, 16, 16))
 
-    def _draw_entity_at(self, screen, tileset, camera_x, camera_y, loc):
+    def _draw_entity_at(self, screen, tileset, camera, loc):
         x, y = loc
         if self.entity_matrix[y][x]:
             kind = self.entity_matrix[y][x].kind
@@ -76,13 +75,13 @@ class Stage(object):
                 tx = 4
 
             screen.blit(tileset,
-                        (x * 16 - camera_x + MENU_WIDTH,
-                         y * 16 - camera_y),
+                        camera.transform_game_to_screen(
+                          (x, y), scalar=16),
                         (tx * 16, 0, 16, 16))
 
-    def draw(self, screen, tileset, camera_x, camera_y):
-        clip_left = math.floor(camera_x / 16)
-        clip_top = math.floor(camera_y / 16)
+    def draw(self, screen, tileset, camera):
+        clip_left = math.floor(camera.x / 16)
+        clip_top = math.floor(camera.y / 16)
         clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
         clip_height = math.floor(SCREEN_LOGICAL_HEIGHT / 16 + 1)
 
@@ -92,7 +91,7 @@ class Stage(object):
                    or y < 0 or y >= self.height:
                     continue
 
-                args = screen, tileset, camera_x, camera_y, (x, y)
+                args = screen, tileset, camera, (x, y)
                 self._draw_tile_at(*args)
                 self._draw_entity_at(*args)
 
@@ -169,13 +168,13 @@ class Stage(object):
         Find an entity on the stage satisfying a condition.
 
         Arguments:
-            condition: a lambda taking an event, the event's
-                x coordinate, and the event's y coordinate,
-                and returning True if the event is accepted
-                or False if the event is not accepted
+            condition: a lambda taking an entity, the entity's
+                x coordinate, and the entity's y coordinate,
+                and returning True if the entity is accepted
+                or False if the entity is not accepted
         Returns:
-            a tuple (event, (x, y)) if an event was accepted,
-            or None if no event was accepted
+            a tuple (entity, (x, y)) if an entity was accepted,
+            or None if no entity was accepted
         """
         random.shuffle(self.entity_list)
         for ent, x, y in self.entity_list:

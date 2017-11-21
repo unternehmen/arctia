@@ -1,16 +1,19 @@
 #!/usr/bin/env python
-import pygame
 import atexit
 import sys
 import os
-import pytmx
 import math
 import random
+
+import pygame
+import pytmx
 from functools import partial
 
+from transform import translate
 from bfont import BitmapFont
 from config import *
 from common import *
+from camera import Camera
 from stage import Stage
 from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
@@ -188,11 +191,11 @@ class BugDrawSystem(object):
     def __init__(self):
         self._bugs = []
 
-    def update(self, screen, tileset, camera_x, camera_y):
+    def update(self, screen, tileset, camera):
         for bug in self._bugs:
             screen.blit(tileset,
-                        (bug.x * 16 - camera_x + MENU_WIDTH,
-                         bug.y * 16 - camera_y),
+                        camera.transform_game_to_screen(
+                          (bug.x, bug.y), scalar=16),
                         (7 * 16, 0, 16, 16))
 
     def add(self, bug):
@@ -266,19 +269,18 @@ class Penguin(object):
         self._stockpiles = stockpiles
         self._jobs = jobs
 
-    def draw(self, screen, tileset, camera_x, camera_y):
+    def draw(self, screen, tileset, camera):
         """
         Draw the Penguin onto a screen or surface.
 
         Arguments:
             screen: the Pygame screen or surface
             tileset: the tileset to use
-            camera_x: the x coordinate of the camera
-            camera_y: the y coordinate of the camera
+            camera: the camera to use
         """
         screen.blit(tileset,
-                    (self.x * 16 - camera_x + MENU_WIDTH,
-                     self.y * 16 - camera_y),
+                    camera.transform_game_to_screen(
+                      (self.x, self.y), scalar=16),
                     (0, 0, 16, 16))
 
     def _look_for_job(self):
@@ -490,10 +492,10 @@ if __name__ == '__main__':
                 os.path.join('gfx', 'fawnt.png')))
 
     player_start_x, player_start_y = stage.get_player_start_pos()
-    camera_x = player_start_x + 8 \
-               - math.floor(SCREEN_LOGICAL_WIDTH / 2.0)
-    camera_y = player_start_y + 8 \
-               - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0)
+    camera = Camera(player_start_x + 8
+                      - math.floor(SCREEN_LOGICAL_WIDTH / 2.0),
+                    player_start_y + 8
+                      - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0))
     jobs = []
     for entity in stage.entities:
         kind, x, y = entity
@@ -560,49 +562,42 @@ if __name__ == '__main__':
                     else:
                         # Use the selected tool.
                         if selected_tool == 'cursor':
-                            tx = math.floor((camera_x + mx
-                                             - MENU_WIDTH)
-                                            / 16)
-                            ty = math.floor((camera_y + my) / 16)
+                            target = camera.transform_screen_to_game(
+                                       (mx, my), divisor=16)
                             print('***')
-                            #stage.set_tile_at(tx, ty, 2)
-                            ent = stage.entity_at((tx, ty))
+                            ent = stage.entity_at(target)
                             if ent:
                                 print('  Entity:', ent.kind)
                                 print('    location:', ent.location)
                                 print('    reserved:', ent.reserved)
                             for penguin in penguins:
-                                if (penguin.x, penguin.y) == (tx, ty):
+                                if (penguin.x, penguin.y) == target:
                                     print('  Penguin:')
                                     if penguin._current_job:
                                         print('    job:', penguin._current_job.__class__.__name__)
                                     else:
                                         print('    job: none')
                             for stock in stockpiles:
-                                if stock.x <= tx < stock.x + stock.width \
-                                   and stock.y <= ty < stock.y + stock.height:
+                                if stock.x <= target[0] < stock.x + stock.width \
+                                   and stock.y <= target[1] < stock.y + stock.height:
                                     print('  Stock slot: ', end='')
-                                    if stock._reservations[ty - stock.y][tx - stock.x]:
+                                    if stock._reservations[target[1] - stock.y][target[0] - stock.x]:
                                         print('reserved')
                                     else:
                                         print('free')
                                     break
                         elif selected_tool == 'mine' \
                              or selected_tool == 'stockpile':
-                            tx = math.floor((camera_x + mx
-                                             - MENU_WIDTH)
-                                            / 16)
-                            ty = math.floor((camera_y + my) / 16)
-                            block_origin = tx, ty
+                            target = camera.transform_screen_to_game(
+                                       (mx, my), divisor=16)
+                            block_origin = target
                         elif selected_tool == 'delete-stockpile':
                             # Delete the chosen stockpile
-                            tx = math.floor((camera_x + mx
-                                             - MENU_WIDTH)
-                                            / 16)
-                            ty = math.floor((camera_y + my) / 16)
+                            target = camera.transform_screen_to_game(
+                                       (mx, my), divisor=16)
                             for stock in stockpiles:
-                                if stock.x <= tx < stock.x + stock.width \
-                                   and stock.y <= ty < stock.y + stock.height:
+                                if stock.x <= target[0] < stock.x + stock.width \
+                                   and stock.y <= target[1] < stock.y + stock.height:
                                     stockpiles.remove(stock)
                                     break
                 elif event.button == 3:
@@ -618,15 +613,13 @@ if __name__ == '__main__':
                     if block_origin:
                         ox, oy = block_origin
                         block_origin = None
-                        tx = math.floor((camera_x + mx
-                                         - MENU_WIDTH)
-                                        / 16)
-                        ty = math.floor((camera_y + my) / 16)
+                        target = camera.transform_screen_to_game(
+                                   (mx, my), divisor=16)
 
-                        left = min((tx, ox))
-                        right = max((tx, ox))
-                        top = min((ty, oy))
-                        bottom = max((ty, oy))
+                        left = min((target[0], ox))
+                        right = max((target[0], ox))
+                        top = min((target[1], oy))
+                        bottom = max((target[1], oy))
 
                         if selected_tool == 'mine':
                             for y in range(top, bottom + 1):
@@ -698,9 +691,9 @@ if __name__ == '__main__':
 
         # Handle dragging the map.
         if drag_origin is not None:
-            camera_x += (drag_origin[0] - mouse_x) \
+            camera.x += (drag_origin[0] - mouse_x) \
                         * SCROLL_FACTOR
-            camera_y += (drag_origin[1] - mouse_y) \
+            camera.y += (drag_origin[1] - mouse_y) \
                         * SCROLL_FACTOR
             drag_origin = mouse_x, mouse_y
 
@@ -720,63 +713,64 @@ if __name__ == '__main__':
         virtual_screen.fill((0, 0, 0))
 
         # Draw the world.
-        stage.draw(virtual_screen, tileset, camera_x, camera_y)
+        stage.draw(virtual_screen, tileset, camera)
 
         for penguin in penguins:
-            penguin.draw(virtual_screen, tileset, camera_x, camera_y)
+            penguin.draw(virtual_screen, tileset, camera)
 
         # Draw stockpiles.
         for pile in stockpiles:
-            pile.draw(virtual_screen, tileset, camera_x, camera_y)
+            pile.draw(virtual_screen, tileset, camera)
 
         # Draw bugs.
-        bug_draw_system.update(virtual_screen, tileset, camera_x, camera_y)
+        bug_draw_system.update(virtual_screen, tileset, camera)
 
         # Hilight MineJob designated areas.
         for job in filter(lambda x: isinstance(x, MineJob), jobs):
             pos = job.locations[0]
             virtual_screen.blit(tileset,
-                                (pos[0] * 16 - camera_x \
-                                 + MENU_WIDTH,
-                                 pos[1] * 16 - camera_y),
+                                camera.transform_game_to_screen(
+                                  pos, scalar=16),
                                 (160, 0, 16, 16))
 
         # Draw the selection box under the cursor if there is one.
         if not block_origin and mouse_x > MENU_WIDTH:
-            wx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
-            wy = math.floor((camera_y + mouse_y) / 16)
+            selection = camera.transform_screen_to_game(
+                          (mouse_x, mouse_y), divisor=16)
             virtual_screen.blit(tileset,
-                                (wx * 16 - camera_x + MENU_WIDTH,
-                                 wy * 16 - camera_y),
+                                camera.transform_game_to_screen(
+                                  selection, scalar=16),
                                 (128, 0, 16, 16))
 
         # Draw the designation rectangle if we are drawing a region.
         if block_origin:
             ox, oy = block_origin
-            tx = math.floor((camera_x + mouse_x - MENU_WIDTH) / 16)
-            ty = math.floor((camera_y + mouse_y) / 16)
+            target = camera.transform_screen_to_game((mouse_x, mouse_y), divisor=16)
 
-            left = min((tx, ox))
-            right = max((tx, ox))
-            top = min((ty, oy))
-            bottom = max((ty, oy))
+            left = min((target[0], ox))
+            right = max((target[0], ox))
+            top = min((target[1], oy))
+            bottom = max((target[1], oy))
 
-            virtual_screen.blit(tileset,
-                                (left * 16 - camera_x + MENU_WIDTH,
-                                 top * 16 - camera_y),
-                                (128, 0, 8, 8))
-            virtual_screen.blit(tileset,
-                                (left * 16 - camera_x + MENU_WIDTH,
-                                 bottom * 16 - camera_y + 8),
-                                (128, 8, 8, 8))
-            virtual_screen.blit(tileset,
-                                (right * 16 - camera_x + MENU_WIDTH + 8,
-                                 top * 16 - camera_y),
-                                (136, 0, 8, 8))
-            virtual_screen.blit(tileset,
-                                (right * 16 - camera_x + MENU_WIDTH + 8,
-                                 bottom * 16 - camera_y + 8),
-                                (136, 8, 8, 8))
+            top_left_coords     = camera.transform_game_to_screen(
+                                    (left, top), scalar=16),
+            top_right_coords    = translate(
+                                    camera.transform_game_to_screen(
+                                      (right, top), scalar=16),
+                                    (8, 0))
+            bottom_left_coords  = translate(
+                                    camera.transform_game_to_screen(
+                                      (left, bottom), scalar=16),
+                                    (0, 8))
+            bottom_right_coords = translate(
+                                    camera.transform_game_to_screen(
+                                      (right, bottom), scalar=16),
+                                    (8, 8))
+
+            virtual_screen.blit(tileset, top_left_coords, (128, 0, 8, 8))
+            virtual_screen.blit(tileset, bottom_left_coords, (128, 8, 8, 8))
+            virtual_screen.blit(tileset, top_right_coords, (136, 0, 8, 8))
+            virtual_screen.blit(tileset, bottom_right_coords, (136, 8, 8, 8))
 
         # Draw the menu bar.
         pygame.draw.rect(virtual_screen,
