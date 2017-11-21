@@ -61,8 +61,7 @@ class PartitionSystem(object):
             need_refresh = False
             for dy in (-1, 0, 1):
                 for dx in (-1, 0, 1):
-                    ox = mob.x + dx
-                    oy = mob.y + dy
+                    ox, oy = translate((mob.x, mob.y), (dx, dy))
 
                     if mob.partition[oy][ox]:
                         need_refresh = True
@@ -163,8 +162,7 @@ class BugDispatchSystem(object):
                                                 (-1, 1), (0, -1),
                                                 (0, 1), (1, -1),
                                                 (1, 0), (1, 1)])
-                        shifted = goal[0] + offset[0], \
-                                  goal[1] + offset[1]
+                        shifted = translate(goal, offset)
                         if 0 <= shifted[0] < self._stage.width \
                            and 0 <= shifted[1] < self._stage.height \
                            and not tile_is_solid(
