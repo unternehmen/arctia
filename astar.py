@@ -1,14 +1,16 @@
+"""
+The astar module provides a function (astar) which does A* path finding.
+"""
 import math
 import heapq
-import os
-from stage import Stage
 from common import tile_is_solid
 
-def _calc_distance(a, b):
-    ax, ay = a
-    bx, by = b
 
-    return math.sqrt((bx - ax) ** 2 + (by - ay) ** 2)
+def _calc_distance(a, b):
+    a_x, a_y = a
+    b_x, b_y = b
+
+    return math.sqrt((b_x - a_x) ** 2 + (b_y - a_y) ** 2)
 
 def _2d_constant_array(width, height, value):
     return [[value for x in range(width)] for y in range(height)]
@@ -35,9 +37,9 @@ def astar(stage, start, end):
         <https://en.wikipedia.org/wiki/A*_search_algorithm>
 
     Arguments:
-        stage: the Stage
-        start: the starting coordinates, e.g., (0, 0)
-        end: the ending coordinates, e.g., (2, 2)
+        stage: a stage
+        start: a pair of starting coordinates, e.g., (0, 0)
+        end: a pair of ending coordinates, e.g., (2, 2)
 
     Returns: a list of coordinates for each step in the path including
              both endpoints, e.g., [(0, 0), (1, 1), (2, 2)]
@@ -47,16 +49,12 @@ def astar(stage, start, end):
     previous = _2d_constant_array(stage.width, stage.height, None)
 
     scost = _2d_constant_array(stage.width, stage.height, math.inf)
-    sx, sy = start
-    scost[sy][sx] = 0
+    scost[start[1]][start[0]] = 0
 
-    offsets = [(-1, -1), (0, -1), (1, -1),
-               (-1, 0),           (1, 0),
-               (-1, 1),  (0, 1),  (1, 1)]
+    offsets = [(-1, -1), (0, -1), (1, -1), (-1, 0),
+               (1, 0), (-1, 1), (0, 1), (1, 1)]
 
-    found = False
-
-    while len(openset) > 0:
+    while openset:
         current = heapq.heappop(openset)[1]
 
         if current == end:
