@@ -1,11 +1,12 @@
+from common import make_2d_constant_array
+
 class Stockpile(object):
     def __init__(self, stage, rect, accepted_kinds):
         self.x, self.y, self.width, self.height = rect
         self.accepted_kinds = accepted_kinds
         self._stage = stage
         self._reservations = \
-            [[False for x in range(self.x, self.x + self.width)]
-             for y in range(self.y, self.y + self.height)]
+          make_2d_constant_array(self.width, self.height, False)
 
     def _detect_acceptable_item_at(self, x, y):
         tid = self._stage.get_tile_at(x, y)

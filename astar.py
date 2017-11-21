@@ -3,8 +3,9 @@ The astar module provides a function (astar) which does A* path finding.
 """
 import math
 import heapq
-from common import tile_is_solid
-from path import make_2d_constant_array, reconstruct_path
+from common import tile_is_solid, make_2d_constant_array
+from path import reconstruct_path
+from transform import translate
 
 def _calc_distance(a, b):
     a_x, a_y = a
@@ -53,7 +54,7 @@ def astar(stage, start, end):
             continue
 
         for offset in offsets:
-            neighbor = tuple([offset[x] + current[x] for x in range(2)])
+            neighbor = translate(current, offset)
 
             if neighbor[0] < 0 or neighbor[0] >= stage.width \
                or neighbor[1] < 0 or neighbor[1] >= stage.height:

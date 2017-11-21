@@ -3,6 +3,7 @@ import random
 import pytmx
 from entity import Entity
 from config import SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT
+from common import make_2d_constant_array
 
 class Stage(object):
     def __init__(self, path):
@@ -12,10 +13,10 @@ class Stage(object):
 
         self.width = tiled_map.width
         self.height = tiled_map.height
-        self.data = [[0 for x in range(self.width)]
-                     for y in range(self.height)]
-        self.entity_matrix = [[None for x in range(self.width)]
-                              for y in range(self.height)]
+        self.data = make_2d_constant_array(self.width, self.height, 0)
+        self.entity_matrix = \
+          make_2d_constant_array(self.width, self.height, None)
+
         # The list of on-stage entities and their coordinates.
         # Contains tuples of the following format: (entity, x, y)
         self.entity_list = []

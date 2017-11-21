@@ -2,8 +2,8 @@
 The breadth module provides a function for breadth-first searching.
 """
 from itertools import product
-from common import tile_is_solid
-from path import make_2d_constant_array, reconstruct_path
+from common import make_2d_constant_array, tile_is_solid
+from path import reconstruct_path
 
 def find_path_to_matching(stage, start, cond):
     """
