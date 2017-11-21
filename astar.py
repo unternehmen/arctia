@@ -4,7 +4,7 @@ The astar module provides a function (astar) which does A* path finding.
 import math
 import heapq
 from common import tile_is_solid
-
+from path import make_2d_constant_array, reconstruct_path
 
 def _calc_distance(a, b):
     a_x, a_y = a
@@ -12,21 +12,8 @@ def _calc_distance(a, b):
 
     return math.sqrt((b_x - a_x) ** 2 + (b_y - a_y) ** 2)
 
-def _2d_constant_array(width, height, value):
-    return [[value for x in range(width)] for y in range(height)]
-
 def _index(mat, tup):
     return mat[tup[1]][tup[0]]
-
-def _reconstruct_path(previous, current):
-    total_path = [current]
-
-    while _index(previous, current) is not None:
-        current = _index(previous, current)
-        total_path.append(current)
-
-    return total_path
-
 
 def astar(stage, start, end):
     """
@@ -46,9 +33,9 @@ def astar(stage, start, end):
     """
     openset = [(_calc_distance(start, end), start)]
     closedset = set()
-    previous = _2d_constant_array(stage.width, stage.height, None)
+    previous = make_2d_constant_array(stage.width, stage.height, None)
 
-    scost = _2d_constant_array(stage.width, stage.height, math.inf)
+    scost = make_2d_constant_array(stage.width, stage.height, math.inf)
     scost[start[1]][start[0]] = 0
 
     offsets = [(-1, -1), (0, -1), (1, -1), (-1, 0),
@@ -58,7 +45,7 @@ def astar(stage, start, end):
         current = heapq.heappop(openset)[1]
 
         if current == end:
-            return list(reversed(_reconstruct_path(previous, current)))
+            return list(reversed(reconstruct_path(previous, current)))
 
         closedset.add(current)
 

@@ -1,21 +1,9 @@
+"""
+The breadth module provides a function for breadth-first searching.
+"""
 from itertools import product
 from common import tile_is_solid
-
-def _2d_constant_array(width, height, value):
-    return [[value for x in range(width)] for y in range(height)]
-
-def _index(mat, tup):
-    return mat[tup[1]][tup[0]]
-
-def _reconstruct_path(previous, current):
-    total_path = [current]
-
-    while _index(previous, current) is not None:
-        current = _index(previous, current)
-        total_path.append(current)
-
-    return total_path
-
+from path import make_2d_constant_array, reconstruct_path
 
 def find_path_to_matching(stage, start, cond):
     """
@@ -27,16 +15,16 @@ def find_path_to_matching(stage, start, cond):
         cond: a lambda taking coordinates and returning True/False
     """
     fringe = [start]
-    visited = _2d_constant_array(stage.width, stage.height, False)
+    visited = make_2d_constant_array(stage.width, stage.height, False)
     visited[start[1]][start[0]] = True
-    previous = _2d_constant_array(stage.width, stage.height, None)
+    previous = make_2d_constant_array(stage.width, stage.height, None)
 
-    while len(fringe) > 0:
+    while fringe:
         node = fringe[0]
         fringe = fringe[1:]
 
         if cond(node):
-            return list(reversed(_reconstruct_path(previous, node)))
+            return list(reversed(reconstruct_path(previous, node)))
 
         if tile_is_solid(stage.get_tile_at(node[0], node[1])):
             continue
@@ -53,4 +41,3 @@ def find_path_to_matching(stage, start, cond):
                 fringe.append(neighbor)
 
     return None
-
