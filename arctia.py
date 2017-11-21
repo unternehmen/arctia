@@ -323,9 +323,9 @@ class Penguin(object):
                     for stock in self._stockpiles:
                         if entity.kind in stock.accepted_kinds \
                            and x >= stock.x \
-                           and x < stock.x + stock.w \
+                           and x < stock.x + stock.width \
                            and y >= stock.y \
-                           and y < stock.y + stock.h:
+                           and y < stock.y + stock.height:
                             return True
                     return False
 
@@ -362,9 +362,9 @@ class Penguin(object):
                                 self._stage.get_tile_at( \
                                   spot[0], spot[1]))
                         not_in_stock = spot[0] < stock.x \
-                                       or spot[0] >= stock.x + stock.w \
+                                       or spot[0] >= stock.x + stock.width \
                                        or spot[1] < stock.y \
-                                       or spot[1] >= stock.y + stock.h
+                                       or spot[1] >= stock.y + stock.height
                         return no_entities and not_solid and not_in_stock
 
                     def nowhere_to_dump_error():
@@ -579,8 +579,8 @@ if __name__ == '__main__':
                                     else:
                                         print('    job: none')
                             for stock in stockpiles:
-                                if stock.x <= tx < stock.x + stock.w \
-                                   and stock.y <= ty < stock.y + stock.h:
+                                if stock.x <= tx < stock.x + stock.width \
+                                   and stock.y <= ty < stock.y + stock.height:
                                     print('  Stock slot: ', end='')
                                     if stock._reservations[ty - stock.y][tx - stock.x]:
                                         print('reserved')
@@ -601,8 +601,8 @@ if __name__ == '__main__':
                                             / 16)
                             ty = math.floor((camera_y + my) / 16)
                             for stock in stockpiles:
-                                if stock.x <= tx < stock.x + stock.w \
-                                   and stock.y <= ty < stock.y + stock.h:
+                                if stock.x <= tx < stock.x + stock.width \
+                                   and stock.y <= ty < stock.y + stock.height:
                                     stockpiles.remove(stock)
                                     break
                 elif event.button == 3:
@@ -653,7 +653,7 @@ if __name__ == '__main__':
                             conflicts = False
                             for stock in stockpiles:
                                 sx, sy = stock.x, stock.y
-                                sw, sh = stock.w, stock.h
+                                sw, sh = stock.width, stock.height
                                 if not (sx > right \
                                         or sy > bottom \
                                         or sx + sw <= left \
@@ -684,7 +684,7 @@ if __name__ == '__main__':
                                                   (left, top,
                                                    right - left + 1,
                                                    bottom - top + 1),
-                                                  jobs, ['fish'])
+                                                   ['fish'])
                                 stockpiles.append(stock)
 
                 elif event.button == 3:
