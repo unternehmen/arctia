@@ -1,5 +1,5 @@
 """
-The camera module provides a Camera class for transforming coordinates.
+The camera module provides a Camera class for projecting coordinates.
 
 Such transformations are necessary in order to blit game objects
 correctly and determine what tile the player has selected.
