@@ -19,84 +19,9 @@ from stockpile import Stockpile
 from job import Job, HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot, TaskEat, TaskWait
 
+from systems import PartitionUpdateSystem
+
 from astar import astar
-from partition import partition
-
-class PartitionSystem(object):
-    """
-    A PartitionSystem updates the partition matrix of units.
-
-    A partition matrix shows whether a unit can reach a location
-    given its movement constraints.  This makes testing reachability
-    an O(1) operation so long as the partition matrices of all units
-    is up-to-date.
-
-    Arguments:
-        stage: the stage
-        mobs: the list of units
-    """
-    def __init__(self, stage, mobs):
-        self._mobs = mobs
-        self._stage = stage
-
-        stage.register_tile_change_listener(self)
-
-        self.refresh()
-
-    def tile_changed(self, prev_id, cur_id, coords):
-        """
-        Notify the PartitionSystem that a tile has changed.
-
-        Arguments:
-            prev_id: the previous ID of the changed tile
-            cur_id: the current ID of the changed tile
-            coords: the (x, y) coordinates of the changed tile
-        """
-        x, y = coords
-
-        # Determine which mobs need partition refreshs.
-        mobs_to_refresh = []
-
-        for mob in self._mobs:
-            need_refresh = False
-            for dy in (-1, 0, 1):
-                for dx in (-1, 0, 1):
-                    ox, oy = translate((mob.x, mob.y), (dx, dy))
-
-                    if mob.partition[oy][ox]:
-                        need_refresh = True
-                        break
-                if need_refresh:
-                    break
-            if need_refresh:
-                mobs_to_refresh.append(mob)
-
-        # Update partitions on mobs which need it.
-        self._refresh_partial(mobs_to_refresh)
-
-    def _refresh_partial(self, mobs):
-        # This currently assumes that all mobs have
-        # the same movement rules!
-        parts = []
-        for mob in mobs:
-            mob.partition = None
-
-            for part in parts:
-                if part[mob.y][mob.x]:
-                    mob.partition = part
-                    break
-
-            if not mob.partition:
-                part = partition(stage, (mob.x, mob.y))
-                mob.partition = part
-                parts.append(part)
-
-    def refresh(self):
-        """
-        Update the partition matrices of all mobs.
-        """
-        self._refresh_partial(self._mobs)
-
 
 class BugDispatchSystem(object):
     """
@@ -532,7 +457,7 @@ if __name__ == '__main__':
         bug_dispatch_system.add(bug)
         bug_draw_system.add(bug)
 
-    partition_system = PartitionSystem(stage, mobs)
+    partition_system = PartitionUpdateSystem(stage, mobs)
 
     drag_origin = None
     block_origin = None
