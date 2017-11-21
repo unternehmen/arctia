@@ -15,22 +15,8 @@ from stage import Stage
 from stockpile import Stockpile
 from job import HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
-from systems import BugDispatchSystem, PartitionUpdateSystem
-
-class BugDrawSystem(object):
-    def __init__(self):
-        self._bugs = []
-
-    def update(self, screen, tileset, camera):
-        for bug in self._bugs:
-            screen.blit(tileset,
-                        camera.transform_game_to_screen(
-                          (bug.x, bug.y), scalar=16),
-                        (7 * 16, 0, 16, 16))
-
-    def add(self, bug):
-        self._bugs.append(bug)
-
+from systems import BugDispatchSystem, BugDrawSystem, \
+                    PartitionUpdateSystem
 
 class Bug(object):
     def __init__(self, x=0, y=0):

@@ -9,6 +9,7 @@ from partition import partition
 from transform import translate
 from task import TaskEat, TaskGo, TaskWait
 
+
 def _refresh_partitions_of_mobs(stage, mobs):
     # This currently assumes that all mobs have
     # the same movement rules!
@@ -184,3 +185,35 @@ class BugDispatchSystem(object):
                                           partial(_forget_task, bug))
 
             bug.hunger += 1
+
+
+class BugDrawSystem(object):
+    """
+    A BugDrawSystem draws bugs onto the screen.
+    """
+    def __init__(self):
+        self._bugs = []
+
+    def add(self, bug):
+        """
+        Add a Bug to be drawn by this system.
+
+        Arguments:
+            bug: the Bug
+        """
+        self._bugs.append(bug)
+
+    def update(self, screen, tileset, camera):
+        """
+        Draws all Bugs onto the screen.
+
+        Arguments:
+            screen: the screen to draw onto
+            tileset: the tileset to use for drawing
+            camera: the camera to project from
+        """
+        for bug in self._bugs:
+            screen.blit(tileset,
+                        camera.transform_game_to_screen(
+                            (bug.x, bug.y), scalar=16),
+                        (7 * 16, 0, 16, 16))
