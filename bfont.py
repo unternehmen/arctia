@@ -1,3 +1,7 @@
+"""
+The bfont module provides a class for loading and using bitmap fonts.
+"""
+
 class BitmapFont(object):
     """
     A BitmapFont is a font derived from a bitmap image.
@@ -18,17 +22,17 @@ class BitmapFont(object):
         sep_color = image.get_at((0, 0))
         idx = 0
         x = 1
-        cw = 0
-        ch = image.get_height()
-        
+        cwidth = 0
+        cheight = image.get_height()
+
         while idx < len(chars):
-            if image.get_at((x + cw, 0)) == sep_color:
-                self.cells[idx] = (x, 0, cw, ch)
+            if image.get_at((x + cwidth, 0)) == sep_color:
+                self.cells[idx] = (x, 0, cwidth, cheight)
                 idx += 1
-                x += cw + 1
-                cw = 0
+                x += cwidth + 1
+                cwidth = 0
             else:
-                cw += 1
+                cwidth += 1
 
     def write(self, surface, text, position):
         """
@@ -42,12 +46,39 @@ class BitmapFont(object):
         x = position[0]
         y = position[1]
 
-        for c in text:
-            if c == '\n':
+        for char in text:
+            if char == '\n':
                 x = position[0]
                 y += self.cells[0][3]
             else:
-                clip = self.cells[self.chars.index(c)]
+                clip = self.cells[self.chars.index(char)]
                 surface.blit(self.image, (x, y), clip)
                 x += clip[2]
 
+    def measure(self, text):
+        """
+        Return the space that a given text would take up.
+
+        Arguments:
+            text: a text
+
+        Returns: a tuple describing a width and height, e.g., (16, 16)
+        """
+        x = 0
+        y = 0
+        width = 0
+        height = 0
+
+        for char in text:
+            if char == '\n':
+                x = 0
+                y += self.cells[0][3]
+            else:
+                clip = self.cells[self.chars.index(char)]
+                if width < x + clip[2]:
+                    width = x + clip[2]
+                elif height < y + clip[3]:
+                    height = y + clip[3]
+                x += clip[2]
+
+        return width, height

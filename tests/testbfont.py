@@ -17,3 +17,11 @@ def test_bfont_load():
     for i, cell in enumerate(bfont.cells[:2]):
         assert cell == expected[i]
     assert len(bfont.cells) == len(chars)
+
+def test_bfont_measure():
+    pygame.init()
+    font_img = pygame.image.load(os.path.join('gfx', 'fawnt.png'))
+    chars = 'ABC'
+    bfont = BitmapFont(chars, font_img)
+    result = bfont.measure('BACAB\nAB')
+    assert(bfont.measure('BACAB\nAB') == (35, 24))
