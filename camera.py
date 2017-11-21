@@ -42,7 +42,7 @@ class Camera(object):
         return (math.floor((self.x + point_x - MENU_WIDTH) / divisor),
                 math.floor((self.y + point_y) / divisor))
 
-    def transform_game_to_screen(self, point, scalar):
+    def transform_game_to_screen(self, point, scalar=1):
         """
         Transform game world coordinates into screen coordinates.
 
