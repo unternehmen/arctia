@@ -98,75 +98,81 @@ class PartitionUpdateSystem(object):
         pass
 
 
-class BugDispatchSystem(object):
+class UnitDispatchSystem(object):
     """
-    A BugDispatchSystem chooses jobs for bugs to do.
+    A UnitDispatchSystem chooses jobs for units to do.
 
     Arguments:
         stage: the stage
     """
     def __init__(self, stage):
-        self._bugs = []
+        self._units = []
         self._stage = stage
 
-    def add(self, bug):
+    def add(self, unit):
         """
-        Add a Bug whose jobs should be managed by this system.
+        Add a unit whose jobs should be managed by this system.
 
         Arguments:
-            bug: the Bug
+            unit: the unit
         """
-        self._bugs.append(bug)
+        self._units.append(unit)
 
     def update(self):
         """
-        Give jobs to all Bugs that need them.
+        Give jobs to all units that need them.
 
         Only run this once every turn (not every frame).
         """
-        def _forget_task(bug):
-            bug.task = None
+        def _forget_task(unit):
+            unit.task = None
 
-        for bug in self._bugs:
-            if bug.task:
-                bug.task.enact()
+        for unit in self._units:
+            if unit.task:
+                unit.task.enact()
 
-            if not bug.task and bug.hunger >= bug.hunger_threshold:
-                # Find a piece of food the bug can reach.
-                def _is_valid_food(bug, entity, _unused_x, _unused_y):
-                    kind = entity.kind
-                    x, y = entity.location
-                    return bug.partition[y][x] and kind == 'fish'
+            if 'eating' in unit.components:
+                if not unit.task and unit.hunger >= unit.hunger_threshold:
+                    # Find a piece of food the unit can reach.
+                    def _is_valid_food(unit, entity, _unused_x, _unused_y):
+                        kind = entity.kind
+                        x, y = entity.location
+                        return unit.partition[y][x] and kind in unit.hunger_diet
 
-                result = \
-                  self._stage.find_entity(partial(_is_valid_food, bug))
+                    result = \
+                      self._stage.find_entity(partial(_is_valid_food, unit))
 
-                if result:
-                    entity, _ = result
+                    if result:
+                        entity, _ = result
 
-                    def _eat_food(bug, entity):
-                        bug.task = TaskEat(self._stage,
-                                           bug, entity,
-                                           interrupted_proc=\
-                                             partial(_forget_task, bug),
-                                           finished_proc=\
-                                             partial(_forget_task, bug))
+                        def _eat_food(unit, entity):
+                            unit.task = TaskEat(self._stage,
+                                                unit, entity,
+                                                interrupted_proc=\
+                                                  partial(_forget_task, unit),
+                                                finished_proc=\
+                                                  partial(_forget_task, unit))
 
-                    # Make the bug go eat the food.
-                    # bug - TaskGo doesn't recover if the object is
-                    #       stolen by another unit (?)
-                    bug.task = TaskGo(self._stage, bug, entity.location,
-                                      blocked_proc=partial(_forget_task, bug),
-                                      finished_proc=partial(_eat_food, bug, entity))
+                        # Make the unit go eat the food.
+                        # unit - TaskGo doesn't recover if the object is
+                        #       stolen by another unit (?)
+                        unit.task = TaskGo(self._stage, unit, entity.location,
+                                          delay=unit.movement_delay,
+                                          blocked_proc=partial(_forget_task, unit),
+                                          finished_proc=partial(_eat_food, unit, entity))
 
-            if not bug.task:
+            if not unit.task:
                 # Choose whether to brood or to wander.
                 choices = ['wandering', 'brooding']
+                choices = list(
+                            filter(
+                              lambda obj: obj in unit.components,
+                              choices))
                 selected = random.choice(choices)
 
                 if selected == 'wandering':
                     # Step wildly to find a goal for our wandering.
-                    goal = bug.x, bug.y
+                    goal = unit.x, unit.y
 
                     for _ in range(40):
                         offset = random.choice([(-1, -1), (-1, 0),
@@ -182,47 +188,47 @@ class BugDispatchSystem(object):
                             goal = shifted
 
                     # Go to our goal position.
-                    bug.task = TaskGo(self._stage, bug, goal,
-                                      delay=bug.wandering_delay,
+                    unit.task = TaskGo(self._stage, unit, goal,
+                                      delay=unit.movement_delay + unit.wandering_delay,
                                       blocked_proc=\
-                                        partial(_forget_task, bug),
+                                        partial(_forget_task, unit),
                                       finished_proc=\
-                                        partial(_forget_task, bug))
+                                        partial(_forget_task, unit))
                 elif selected == 'brooding':
-                    bug.task = TaskWait(duration=bug.brooding_duration,
+                    unit.task = TaskWait(duration=unit.brooding_duration,
                                         finished_proc=\
-                                          partial(_forget_task, bug))
+                                          partial(_forget_task, unit))
 
-            bug.hunger += 1
+            unit.hunger += 1
 
 
-class BugDrawSystem(object):
+class UnitDrawSystem(object):
     """
-    A BugDrawSystem draws bugs onto the screen.
+    A UnitDrawSystem draws units onto the screen.
     """
     def __init__(self):
-        self._bugs = []
+        self._units = []
 
-    def add(self, bug):
+    def add(self, unit):
         """
-        Add a Bug to be drawn by this system.
+        Add a unit to be drawn by this system.
 
         Arguments:
-            bug: the Bug
+            unit: the unit
         """
-        self._bugs.append(bug)
+        self._units.append(unit)
 
     def update(self, screen, tileset, camera):
         """
-        Draws all Bugs onto the screen.
+        Draws all units onto the screen.
 
         Arguments:
             screen: the screen to draw onto
             tileset: the tileset to use for drawing
             camera: the camera to project from
         """
-        for bug in self._bugs:
+        for unit in self._units:
             screen.blit(tileset,
                         camera.transform_game_to_screen(
-                            (bug.x, bug.y), scalar=16),
-                        (7 * 16, 0, 16, 16))
+                            (unit.x, unit.y), scalar=16),
+                        unit.clip)

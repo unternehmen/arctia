@@ -15,21 +15,42 @@ from stage import Stage
 from stockpile import Stockpile
 from job import HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
-from systems import BugDispatchSystem, BugDrawSystem, \
+from systems import UnitDispatchSystem, UnitDrawSystem, \
                     PartitionUpdateSystem
 
 class Bug(object):
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
+        self.movement_delay = 0
         self.hunger = 0
         self.hunger_threshold = 50
+        self.hunger_diet = {
+            'fish': 100
+        }
         self.wandering_delay = 1
         self.brooding_duration = 6
         self.task = None
         self.partition = None
         self.components = ['eating', 'wandering', 'brooding']
+        self.clip = (112, 0, 16, 16)
 
+class Gnoose(object):
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
+        self.movement_delay = 2
+        self.hunger = 0
+        self.hunger_threshold = 100
+        self.hunger_diet = {
+            'rock': 200
+        }
+        self.wandering_delay = 1
+        self.brooding_duration = 12
+        self.task = None
+        self.partition = None
+        self.components = ['eating', 'wandering', 'brooding']
+        self.clip = (16, 16, 16, 16)
 
 class Penguin(object):
     """
@@ -331,15 +352,16 @@ if __name__ == '__main__':
 
     mobs += penguins
 
-    bugs = [Bug(51, 50),
+    bugs = [Gnoose(50, 50),
+            Bug(51, 50),
             Bug(52, 50),
             Bug(53, 50),
             Bug(54, 50)]
 
     mobs += bugs
 
-    bug_dispatch_system = BugDispatchSystem(stage)
-    bug_draw_system = BugDrawSystem()
+    bug_dispatch_system = UnitDispatchSystem(stage)
+    bug_draw_system = UnitDrawSystem()
 
     for bug in bugs:
         bug_dispatch_system.add(bug)

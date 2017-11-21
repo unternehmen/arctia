@@ -346,7 +346,7 @@ class TaskEat(object):
         # Otherwise, continue eating.
         self._work_left -= 1
         if self._work_left == 0:
-            self._unit.hunger = max(0, self._unit.hunger - 40)
+            self._unit.hunger = max(0, self._unit.hunger - self._unit.hunger_diet[self._entity.kind])
             self._stage.delete_entity(self._entity)
             self._finished_proc()
             self._finished = True
