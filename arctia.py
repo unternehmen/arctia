@@ -319,7 +319,7 @@ if __name__ == '__main__':
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
     bfont = BitmapFont(
-              'ABCDEFGHIJKLMN',
+              'ABCDEFGHIJKLMNOPQRSTUVWXYZ ',
               pygame.image.load(
                 os.path.join('gfx', 'fawnt.png')))
 
@@ -372,7 +372,28 @@ if __name__ == '__main__':
     drag_origin = None
     block_origin = None
 
-    tools = ['cursor', 'mine', 'haul', 'stockpile', 'delete-stockpile']
+    tools = [
+        {
+            'ident': 'cursor',
+            'label': 'SELECT'
+        },
+        {
+            'ident': 'mine',
+            'label': 'MINE'
+        },
+        {
+            'ident': 'haul',
+            'label': 'NOT IMPLEMENTED'
+        },
+        {
+            'ident': 'stockpile',
+            'label': 'CREATE PILE'
+        },
+        {
+            'ident': 'delete-stockpile',
+            'label': 'DELETE PILE'
+        }
+    ]
     selected_tool = 'cursor'
 
 
@@ -391,7 +412,7 @@ if __name__ == '__main__':
                     if mx < MENU_WIDTH:
                         # Select a tool in the menu bar.
                         if my < len(tools) * 16:
-                            selected_tool = tools[math.floor(my / 16)]
+                            selected_tool = tools[math.floor(my / 16)]['ident']
                     else:
                         # Use the selected tool.
                         if selected_tool == 'cursor':
@@ -611,12 +632,20 @@ if __name__ == '__main__':
                          (0, 0, MENU_WIDTH, SCREEN_LOGICAL_HEIGHT))
 
         for i in range(len(tools)):
-            if selected_tool == tools[i]:
+            if selected_tool == tools[i]['ident']:
                 offset_y = 32
             else:
                 offset_y = 16
             virtual_screen.blit(tileset, (0, i * 16),
                                 (128 + i * 16, offset_y, 16, 16))
+
+        # Draw the label of the currently hovered menu item.
+        if mouse_x < MENU_WIDTH:
+            if mouse_y < len(tools) * 16:
+                tool_idx = math.floor(mouse_y / 16.0)
+                bfont.write(virtual_screen,
+                            tools[tool_idx]['label'],
+                            (17, tool_idx * 16 + 2))
 
         # Scale and draw onto the real screen.
         pygame.transform.scale(virtual_screen,
