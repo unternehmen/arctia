@@ -51,6 +51,9 @@ class BitmapFont(object):
                 x = position[0]
                 y += self.cells[0][3]
             else:
+                if char not in self.chars:
+                    continue
+
                 clip = self.cells[self.chars.index(char)]
                 surface.blit(self.image, (x, y), clip)
                 x += clip[2]
@@ -74,6 +77,9 @@ class BitmapFont(object):
                 x = 0
                 y += self.cells[0][3]
             else:
+                if char not in self.chars:
+                    continue
+
                 clip = self.cells[self.chars.index(char)]
                 if width < x + clip[2]:
                     width = x + clip[2]
