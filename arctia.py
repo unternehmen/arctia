@@ -319,7 +319,7 @@ if __name__ == '__main__':
     tileset = pygame.image.load(os.path.join('gfx', 'tileset.png'))
     stage = Stage(os.path.join('maps', 'tuxville.tmx'))
     bfont = BitmapFont(
-              'ABCDEFGHIJKLMNOPQRSTUVWXYZ ',
+              'ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz',
               pygame.image.load(
                 os.path.join('gfx', 'fawnt.png')))
 
@@ -375,23 +375,23 @@ if __name__ == '__main__':
     tools = [
         {
             'ident': 'cursor',
-            'label': 'SELECT'
+            'label': 'Select'
         },
         {
             'ident': 'mine',
-            'label': 'MINE'
+            'label': 'Mine'
         },
         {
             'ident': 'haul',
-            'label': 'NOT IMPLEMENTED'
+            'label': 'Not Implemented'
         },
         {
             'ident': 'stockpile',
-            'label': 'CREATE PILE'
+            'label': 'Create Stockpile'
         },
         {
             'ident': 'delete-stockpile',
-            'label': 'DELETE PILE'
+            'label': 'Delete Stockpile'
         }
     ]
     selected_tool = 'cursor'
