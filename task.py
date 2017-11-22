@@ -145,11 +145,6 @@ class TaskTake(object):
             self._not_found_proc()
             return
 
-        assert not self._unit._held_entity, \
-               'unit tried to take when its hands were full'
-
-        self._unit._held_entity = self._entity
-        self._entity.relinquish()
         self._entity.location = None
         self._stage.delete_entity(self._entity)
         self._finished_proc()
@@ -164,8 +159,9 @@ class TaskDrop(object):
         2. Otherwise, the unit drops the item, and
            finished_proc is called.
     """
-    def __init__(self, stage, unit, blocked_proc, finished_proc):
+    def __init__(self, stage, entity, unit, blocked_proc, finished_proc):
         self._stage = stage
+        self._entity = entity
         self._unit = unit
         self._blocked_proc = blocked_proc
         self._finished_proc = finished_proc
@@ -178,11 +174,8 @@ class TaskDrop(object):
                 self._blocked_proc()
             return
 
-        entity = unit._held_entity
-        unit._held_entity = None
-
-        self._stage.add_entity(entity, (unit.x, unit.y))
-        entity.location = (unit.x, unit.y)
+        self._stage.add_entity(self._entity, (unit.x, unit.y))
+        self._entity.location = (unit.x, unit.y)
         self._finished_proc()
         return
 
@@ -282,34 +275,30 @@ class TaskGoToAnyMatchingSpot(object):
                                (unit.x, unit.y),
                                self._target)
 class TaskTrade(object):
-    def __init__(self, stage, unit, entity, finished_proc):
+    def __init__(self, stage, entity, unit, occupier, finished_proc):
         self._stage = stage
         self._unit = unit
         self._entity = entity
+        self._occupier = occupier
         self._finished_proc = finished_proc
 
     def enact(self):
         unit = self._unit
 
-        held = unit._held_entity
-        grounded = self._stage.entity_at((unit.x, unit.y))
+        held = self._entity
+        grounded = self._occupier
 
         assert (unit.x, unit.y) == grounded.location
         assert held is not None
         assert grounded is not None
 
         # Remove the object on the ground.
-        grounded.relinquish()
-        grounded.location = None
         self._stage.delete_entity(grounded)
 
         # Place the unit's object onto the ground.
         self._stage.add_entity(held, (unit.x, unit.y))
-        held.location = (unit.x, unit.y)
 
-        # Give the removed object to the unit.
-        self._unit._held_entity = grounded
-
+        # Complete the job.
         self._finished_proc()
         return
 

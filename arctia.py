@@ -3,6 +3,7 @@ import atexit
 import sys
 import os
 import math
+from functools import partial
 
 import pygame
 
@@ -17,6 +18,7 @@ from job import HaulJob, MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
 from systems import UnitDispatchSystem, UnitDrawSystem, \
                     PartitionUpdateSystem
+from team import Team
 
 class Bug(object):
     def __init__(self, x=0, y=0):
@@ -56,7 +58,7 @@ class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
     """
-    def __init__(self, ident, stage, x, y, jobs, stockpiles):
+    def __init__(self, team, ident, stage, x, y, jobs, stockpiles):
         """
         Create a new Penguin.
 
@@ -81,6 +83,9 @@ class Penguin(object):
         self.x = x
         self.y = y
 
+        # The penguin's team
+        self._team = team
+
         # The partition of the stage that this penguin can reach
         self.partition = None
 
@@ -96,10 +101,7 @@ class Penguin(object):
         self._current_job = None
 
         # The penguin's current task
-        self._current_task = None
-
-        # The path to the penguin's current job
-        self._path_to_current_job = None
+        self.task = None
 
         ## External data
         self._stage = stage
@@ -124,8 +126,8 @@ class Penguin(object):
         """
         Find a job to do.
         """
-        assert self._current_job is None, \
-               'Penguin %s looked for a job but it already has one!' % \
+        assert not self.task, \
+               'Penguin %s looked for a job but it already has a task!' % \
                  self.ident
 
         if self._hunger >= HUNGER_THRESHOLD:
@@ -136,159 +138,205 @@ class Penguin(object):
         for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
             x, y = job.locations[0]
 
-            if self.partition[y][x]:
-                if job.reserved or job.done:
-                    continue
+            # If we can't reach the mining job, skip it.
+            if not self.partition[y][x]:
+                continue
 
-                def start_mining():
-                    task = TaskMine(self._stage, self, (x, y),
-                                    finished_proc = \
-                                      self._finish_job_entirely)
-                    self._current_task = task
+            # If the mining job is reserved or already done, skip it.
+            if self._team.is_reserved('mine', job) or job.done:
+                continue
 
-                task = TaskGo(self._stage, self, (x, y),
-                              blocked_proc=self._forget_job,
-                              finished_proc=start_mining)
-                self._current_task = task
+            # Take the job.
+            def _complete_mining(job):
+                job.finish()
+                self.task = None
+                self._look_for_job()
 
-                job.reserve()
-                self._current_job = job
-                return
+            def _forget_job(job):
+                self._team.relinquish('mine', job)
+                self.task = None
+                self._look_for_job()
+
+            def _start_mining(job):
+                task = TaskMine(self._stage, self, (x, y),
+                                finished_proc = \
+                                  partial(_complete_mining, job))
+                self.task = task
+
+            task = TaskGo(self._stage, self, (x, y),
+                          blocked_proc=partial(_forget_job, job),
+                          finished_proc=partial(_start_mining, job))
+            self.task = task
+            self._team.reserve('mine', job)
+
+            # We have a job now, so stop searching.
+            return
 
         # Otherwise, find a hauling job.
         for stock in self._stockpiles:
-            if not stock.full and self.partition[stock.y][stock.x]:
-                def _entity_is_stockpiled(entity, x, y):
-                    for stock in self._stockpiles:
-                        if entity.kind in stock.accepted_kinds \
-                           and x >= stock.x \
-                           and x < stock.x + stock.width \
-                           and y >= stock.y \
-                           and y < stock.y + stock.height:
-                            return True
-                    return False
+            # If we cannot reach the stockpile, skip it.
+            if not self.partition[stock.y][stock.x]:
+                continue
 
-                result = \
-                  self._stage.find_entity(
-                    lambda e, x, y: \
-                      self.partition[y][x] \
-                      and e.kind in stock.accepted_kinds \
-                      and not e.reserved \
-                      and not _entity_is_stockpiled(e, x, y))
+            # Determine whether the stockpile is full or not.
+            pile_is_full = True
+            chosen_slot = None
+            accepted_kinds = stock.accepted_kinds
 
-                if result:
-                    entity, loc = result
-                    x, y = loc
+            for y in range(stock.y, stock.y + stock.height):
+                for x in range(stock.x, stock.x + stock.width):
+                    loc = x, y
+                    ent = self._stage.entity_at(loc)
 
-                    def drop_and_finish():
-                        task = TaskDrop(self._stage, self,
-                                        blocked_proc=\
-                                          dump_somewhere,
-                                        finished_proc=\
-                                          self._finish_job_entirely)
-                        self._current_task = task
+                    if ent and ent.kind in accepted_kinds:
+                        continue
 
-                    def spot_is_empty(spot):
-                        no_entities = \
-                          self._stage.entity_at(spot) is None
-                        not_solid = \
-                          not tile_is_solid( \
-                                self._stage.get_tile_at( \
-                                  spot[0], spot[1]))
-                        not_in_stock = spot[0] < stock.x \
-                                       or spot[0] >= stock.x + stock.width \
-                                       or spot[1] < stock.y \
-                                       or spot[1] >= stock.y + stock.height
-                        return no_entities and not_solid and not_in_stock
+                    if self._team.is_reserved('location', loc):
+                        continue
 
-                    def nowhere_to_dump_error():
-                        assert False, 'penguin could not find anywhere to dump an object'
+                    chosen_slot = loc
+                    pile_is_full = False
+                    break
+                if not pile_is_full:
+                    break
 
-                    def dump_somewhere():
-                        task = TaskGoToAnyMatchingSpot(
-                                 self._stage, self, spot_is_empty,
-                                 impossible_proc=nowhere_to_dump_error,
-                                 finished_proc=drop_and_finish)
-                        self._current_task = task
-                    
-                    def try_storing_it():
-                        occupier = self._stage.entity_at(
-                                     (self.x, self.y))
-                        if occupier:
-                            task = TaskTrade(self._stage, self,
-                                             occupier,
-                                             finished_proc=\
-                                                 dump_somewhere)
-                        else:
-                            task = TaskDrop(self._stage, self,
-                                            blocked_proc=\
-                                              None,
-                                            finished_proc=\
-                                              self._finish_job_entirely)
-                        self._current_task = task
+            # If the stockpile is full, skip it.
+            if pile_is_full:
+                continue
 
-                    def go_to_stock_slot():
-                        # Unreserve the object we picked up.
-                        self._held_entity.relinquish()
+            # Find an entity that needs to be stored in the stockpile.
+            def _entity_is_stockpiled(entity, x, y):
+                for stock in self._stockpiles:
+                    if entity.kind in stock.accepted_kinds \
+                       and x >= stock.x \
+                       and x < stock.x + stock.width \
+                       and y >= stock.y \
+                       and y < stock.y + stock.height:
+                        return True
+                return False
 
-                        # Only continue if the stockpile still exsits.
-                        if not self._current_job.stockpile \
-                               in self._stockpiles:
-                            drop_and_finish()
-                            return
+            result = \
+              self._stage.find_entity(
+                lambda e, x, y: \
+                  self.partition[y][x] \
+                  and e.kind in accepted_kinds \
+                  and not self._team.is_reserved('entity', e) \
+                  and not _entity_is_stockpiled(e, x, y))
 
-                        # Check if we can reach the stockpile.
-                        sx = self._current_job.stockpile.x
-                        sy = self._current_job.stockpile.y
-                        if not self.partition[sy][sx]:
-                            drop_and_finish()
-                            return
-                        else:
-                            task = TaskGo(self._stage, self,
-                                          self._current_job.slot_location,
-                                          blocked_proc=drop_and_finish,
-                                          finished_proc=try_storing_it)
-                            self._current_task = task
-                    
-                    def pick_up_and_go():
-                        task = TaskTake(self._stage,
-                                        self, entity,
-                                        not_found_proc=\
-                                          self._forget_job,
-                                        finished_proc=\
-                                          go_to_stock_slot)
-                        self._current_task = task
+            # If there is no such entity, skip this stockpile.
+            if not result:
+                break
 
-                    task = TaskGo(self._stage, self, (x, y),
-                                  blocked_proc=self._forget_job,
-                                  finished_proc=pick_up_and_go)
-                    self._current_task = task
+            # Otherwise, take the hauling job.
+            entity, loc = result
+            x, y = loc
 
-                    entity.reserve()
+            def start_haul_job(stock, entity, chosen_slot):
+                self._team.reserve('location', chosen_slot)
+                self._team.reserve('entity', entity)
+                self.task = \
+                    TaskGo(self._stage, self,
+                           target=entity.location,
+                           delay=0,
+                           blocked_proc=\
+                             partial(abort_entity_inaccessible,
+                                     stock, entity, chosen_slot),
+                           finished_proc=
+                             partial(pick_up_entity,
+                                     stock, entity, chosen_slot))
 
-                    job = HaulJob(entity)
-                    job.slot_location = stock.reserve_slot()
-                    job.stockpile = stock
 
-                    self._current_job = job
-                    return
+            def pick_up_entity(stock, entity, chosen_slot):
+                self.task = \
+                    TaskTake(self._stage, self, entity,
+                             not_found_proc=\
+                               partial(abort_entity_inaccessible,
+                                       stock, entity, chosen_slot),
+                             finished_proc=\
+                               partial(haul_entity_to_slot,
+                                       stock, entity, chosen_slot))
 
-    def _forget_job(self):
-        self._current_task = None
-        self._current_job.relinquish()
-        self._current_job = None
-        self._path_to_current_job = None
-        self._look_for_job()
+            def abort_entity_inaccessible(_unused_stock,
+                                          entity, chosen_slot):
+                self._team.relinquish('location', chosen_slot)
+                self._team.relinquish('entity', entity)
+                self.task = None
 
-    def _finish_job_entirely(self):
-        """
-        Mark the current job as complete and get rid of its state.
-        """
-        self._current_task = None
-        self._current_job.finish()
-        self._current_job = None
-        self._path_to_current_job = None
-        self._look_for_job()
+            def haul_entity_to_slot(stock, entity, chosen_slot):
+                self._team.relinquish('entity', entity)
+                self.task = \
+                    TaskGo(self._stage, self,
+                           target=chosen_slot,
+                           delay=0,
+                           blocked_proc=\
+                             partial(abort_dump_wherever,
+                                     stock, entity, chosen_slot),
+                           finished_proc=\
+                             partial(put_entity_into_slot,
+                                     stock, entity, chosen_slot))
+
+            def abort_dump_wherever(stock, entity, chosen_slot):
+                def _location_is_empty(loc):
+                    return not self._stage.entity_at(loc)
+                if self._team.is_reserved('location', chosen_slot):
+                    self._team.relinquish('location', chosen_slot)
+                self.task = \
+                  TaskGoToAnyMatchingSpot(
+                    self._stage, self,
+                    condition_func=_location_is_empty,
+                    impossible_proc=\
+                      partial(die_no_dump_location,
+                              stock, entity, chosen_slot),
+                    finished_proc=\
+                      partial(try_to_dump,
+                              stock, entity, chosen_slot))
+
+            def try_to_dump(stock, entity, chosen_slot):
+                self.task = \
+                  TaskDrop(
+                    self._stage, entity, self,
+                    blocked_proc=\
+                      partial(abort_dump_wherever,
+                              stock, entity, chosen_slot),
+                    finished_proc=abort_no_cleanup_needed)
+
+            def die_no_dump_location(_unused_stock,
+                                     _unused_entity,
+                                     _unused_chosen_slot):
+                assert False, 'error: no accessible dump location'
+
+            def put_entity_into_slot(stock, entity, chosen_slot):
+                occupier = self._stage.entity_at(chosen_slot)
+
+                if occupier:
+                    self.task = \
+                      TaskTrade(
+                        self._stage, entity, self, occupier,
+                        finished_proc=\
+                          partial(abort_dump_wherever,
+                                  stock, occupier, chosen_slot))
+                else:
+                    self.task = \
+                      TaskDrop(
+                        self._stage, entity, self,
+                        blocked_proc=\
+                          partial(put_entity_into_slot,
+                                  stock, entity, chosen_slot),
+                        finished_proc=\
+                          partial(abort_and_relinquish_slot,
+                                  stock, entity, chosen_slot))
+
+            def abort_no_cleanup_needed():
+                self.task = None
+
+            def abort_and_relinquish_slot(stock, entity, chosen_slot):
+                self._team.relinquish('location', chosen_slot)
+                self.task = None
+
+            start_haul_job(stock, entity, chosen_slot)
+
+            # We have a job now, so stop searching.
+            return
 
     def update(self):
         """
@@ -297,15 +345,15 @@ class Penguin(object):
         This should only be called once every turn.
         """
         # Find a job if we don't have one.
-        if self._current_job is None:
+        if self.task is None:
             self._look_for_job()
 
         # Get hungrier.
         self._hunger += 1
 
         # If we have a task, do it.
-        if self._current_task:
-            self._current_task.enact()
+        if self.task:
+            self.task.enact()
 
 
 if __name__ == '__main__':
@@ -342,8 +390,10 @@ if __name__ == '__main__':
     timeslice = 0
     ident = 0
 
+    player_team = Team()
+
     for x, y in penguin_offsets:
-        penguins.append(Penguin(ident, stage,
+        penguins.append(Penguin(player_team, ident, stage,
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
                                 jobs,
@@ -419,11 +469,16 @@ if __name__ == '__main__':
                             target = camera.transform_screen_to_game(
                                        (mx, my), divisor=16)
                             print('***')
+                            print('  Location:')
+                            if player_team.is_reserved('location', target):
+                                print('    reserved: yes')
+                            else:
+                                print('    reserved: no')
                             ent = stage.entity_at(target)
                             if ent:
                                 print('  Entity:', ent.kind)
                                 print('    location:', ent.location)
-                                print('    reserved:', ent.reserved)
+                                #print('    reserved:', ent.reserved)
                             for penguin in penguins:
                                 if (penguin.x, penguin.y) == target:
                                     print('  Penguin:')

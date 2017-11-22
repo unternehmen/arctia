@@ -76,14 +76,15 @@ class HaulJob(Job):
         self.stockpile = None
 
     def finish(self):
-        self.stockpile.relinquish_slot(self.slot_location)
+        #self.stockpile.relinquish_slot(self.slot_location)
         super().finish()
 
     def relinquish(self):
         super().relinquish()
 
         if self.stockpile and self.slot_location:
-            self.stockpile.relinquish_slot(self.slot_location)
+            #self.stockpile.relinquish_slot(self.slot_location)
+            pass
 
     @property
     def locations(self):

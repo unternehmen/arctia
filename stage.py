@@ -133,6 +133,7 @@ class Stage(object):
         assert not self.entity_matrix[y][x], \
                'location is not empty: x=%d, y=%d' % (x, y)
 
+        entity.location = location
         self.entity_matrix[y][x] = entity
         self.entity_list.append((entity, x, y))
 
