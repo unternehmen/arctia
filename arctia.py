@@ -84,7 +84,7 @@ class Penguin(object):
         self.y = y
 
         # The penguin's team
-        self._team = team
+        self.team = team
 
         # The partition of the stage that this penguin can reach
         self.partition = None
@@ -143,7 +143,7 @@ class Penguin(object):
                 continue
 
             # If the mining job is reserved or already done, skip it.
-            if self._team.is_reserved('mine', job) or job.done:
+            if self.team.is_reserved('mine', job) or job.done:
                 continue
 
             # Take the job.
@@ -153,7 +153,7 @@ class Penguin(object):
                 self._look_for_job()
 
             def _forget_job(job):
-                self._team.relinquish('mine', job)
+                self.team.relinquish('mine', job)
                 self.task = None
                 self._look_for_job()
 
@@ -167,7 +167,7 @@ class Penguin(object):
                           blocked_proc=partial(_forget_job, job),
                           finished_proc=partial(_start_mining, job))
             self.task = task
-            self._team.reserve('mine', job)
+            self.team.reserve('mine', job)
 
             # We have a job now, so stop searching.
             return
@@ -191,7 +191,7 @@ class Penguin(object):
                     if ent and ent.kind in accepted_kinds:
                         continue
 
-                    if self._team.is_reserved('location', loc):
+                    if self.team.is_reserved('location', loc):
                         continue
 
                     chosen_slot = loc
@@ -220,7 +220,7 @@ class Penguin(object):
                 lambda e, x, y: \
                   self.partition[y][x] \
                   and e.kind in accepted_kinds \
-                  and not self._team.is_reserved('entity', e) \
+                  and not self.team.is_reserved('entity', e) \
                   and not _entity_is_stockpiled(e, x, y))
 
             # If there is no such entity, skip this stockpile.
@@ -231,81 +231,81 @@ class Penguin(object):
             entity, loc = result
             x, y = loc
 
-            def start_haul_job(stock, entity, chosen_slot):
-                self._team.reserve('location', chosen_slot)
-                self._team.reserve('entity', entity)
+            def _start_haul_job(stock, entity, chosen_slot):
+                self.team.reserve('location', chosen_slot)
+                self.team.reserve('entity', entity)
                 self.task = \
                     TaskGo(self._stage, self,
                            target=entity.location,
                            delay=0,
                            blocked_proc=\
-                             partial(abort_entity_inaccessible,
+                             partial(_abort_entity_inaccessible,
                                      stock, entity, chosen_slot),
                            finished_proc=
-                             partial(pick_up_entity,
+                             partial(_pick_up_entity,
                                      stock, entity, chosen_slot))
 
 
-            def pick_up_entity(stock, entity, chosen_slot):
+            def _pick_up_entity(stock, entity, chosen_slot):
                 self.task = \
                     TaskTake(self._stage, self, entity,
                              not_found_proc=\
-                               partial(abort_entity_inaccessible,
+                               partial(_abort_entity_inaccessible,
                                        stock, entity, chosen_slot),
                              finished_proc=\
-                               partial(haul_entity_to_slot,
+                               partial(_haul_entity_to_slot,
                                        stock, entity, chosen_slot))
 
-            def abort_entity_inaccessible(_unused_stock,
+            def _abort_entity_inaccessible(_unused_stock,
                                           entity, chosen_slot):
-                self._team.relinquish('location', chosen_slot)
-                self._team.relinquish('entity', entity)
+                self.team.relinquish('location', chosen_slot)
+                self.team.relinquish('entity', entity)
                 self.task = None
 
-            def haul_entity_to_slot(stock, entity, chosen_slot):
-                self._team.relinquish('entity', entity)
+            def _haul_entity_to_slot(stock, entity, chosen_slot):
+                self.team.relinquish('entity', entity)
                 self.task = \
                     TaskGo(self._stage, self,
                            target=chosen_slot,
                            delay=0,
                            blocked_proc=\
-                             partial(abort_dump_wherever,
+                             partial(_abort_dump_wherever,
                                      stock, entity, chosen_slot),
                            finished_proc=\
-                             partial(put_entity_into_slot,
+                             partial(_put_entity_into_slot,
                                      stock, entity, chosen_slot))
 
-            def abort_dump_wherever(stock, entity, chosen_slot):
+            def _abort_dump_wherever(stock, entity, chosen_slot):
                 def _location_is_empty(loc):
                     return not self._stage.entity_at(loc)
-                if self._team.is_reserved('location', chosen_slot):
-                    self._team.relinquish('location', chosen_slot)
+                if self.team.is_reserved('location', chosen_slot):
+                    self.team.relinquish('location', chosen_slot)
                 self.task = \
                   TaskGoToAnyMatchingSpot(
                     self._stage, self,
                     condition_func=_location_is_empty,
                     impossible_proc=\
-                      partial(die_no_dump_location,
+                      partial(_die_no_dump_location,
                               stock, entity, chosen_slot),
                     finished_proc=\
-                      partial(try_to_dump,
+                      partial(_try_to_dump,
                               stock, entity, chosen_slot))
 
-            def try_to_dump(stock, entity, chosen_slot):
+            def _try_to_dump(stock, entity, chosen_slot):
                 self.task = \
                   TaskDrop(
                     self._stage, entity, self,
                     blocked_proc=\
-                      partial(abort_dump_wherever,
+                      partial(_abort_dump_wherever,
                               stock, entity, chosen_slot),
-                    finished_proc=abort_no_cleanup_needed)
+                    finished_proc=_abort_no_cleanup_needed)
 
-            def die_no_dump_location(_unused_stock,
+            def _die_no_dump_location(_unused_stock,
                                      _unused_entity,
                                      _unused_chosen_slot):
                 assert False, 'error: no accessible dump location'
 
-            def put_entity_into_slot(stock, entity, chosen_slot):
+            def _put_entity_into_slot(stock, entity, chosen_slot):
                 occupier = self._stage.entity_at(chosen_slot)
 
                 if occupier:
@@ -313,27 +313,27 @@ class Penguin(object):
                       TaskTrade(
                         self._stage, entity, self, occupier,
                         finished_proc=\
-                          partial(abort_dump_wherever,
+                          partial(_abort_dump_wherever,
                                   stock, occupier, chosen_slot))
                 else:
                     self.task = \
                       TaskDrop(
                         self._stage, entity, self,
                         blocked_proc=\
-                          partial(put_entity_into_slot,
+                          partial(_put_entity_into_slot,
                                   stock, entity, chosen_slot),
                         finished_proc=\
-                          partial(abort_and_relinquish_slot,
+                          partial(_abort_and_relinquish_slot,
                                   stock, entity, chosen_slot))
 
-            def abort_no_cleanup_needed():
+            def _abort_no_cleanup_needed():
                 self.task = None
 
-            def abort_and_relinquish_slot(stock, entity, chosen_slot):
-                self._team.relinquish('location', chosen_slot)
+            def _abort_and_relinquish_slot(stock, entity, chosen_slot):
+                self.team.relinquish('location', chosen_slot)
                 self.task = None
 
-            start_haul_job(stock, entity, chosen_slot)
+            _start_haul_job(stock, entity, chosen_slot)
 
             # We have a job now, so stop searching.
             return
