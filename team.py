@@ -6,6 +6,7 @@ class Team(object):
     A Team allows units to coordinate, i.e., reserve things.
     """
     def __init__(self):
+        self.designations = []
         self.reservations = {
             'entity': [],
             'location': [],

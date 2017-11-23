@@ -14,7 +14,6 @@ from common import *
 from camera import Camera
 from stage import Stage
 from stockpile import Stockpile
-from job import MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
 from systems import UnitDispatchSystem, UnitDrawSystem, \
                     PartitionUpdateSystem
@@ -58,16 +57,16 @@ class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
     """
-    def __init__(self, team, ident, stage, x, y, jobs, stockpiles):
+    def __init__(self, team, ident, stage, x, y, stockpiles):
         """
         Create a new Penguin.
 
         Arguments:
+            team: the team this Penguin is on
             ident: an identification number
             stage: the Stage the penguin exists in
             x: the x coordinate of the penguin
             y: the y coordinate of the penguin
-            jobs: the global list of Jobs
             stockpiles: the global list of Stockpiles
 
         Returns: a new Penguin
@@ -93,20 +92,12 @@ class Penguin(object):
         # The penguin's hunger (0 = full, >40 = hungry, >80 = starving)
         self._hunger = 0
 
-        ## Job data
-        # Entity held by the penguin for a drop-job
-        self._held_entity = None
-
-        # The penguin's current job
-        self._current_job = None
-
         # The penguin's current task
         self.task = None
 
         ## External data
         self._stage = stage
         self._stockpiles = stockpiles
-        self._jobs = jobs
 
     def draw(self, screen, tileset, camera):
         """
@@ -135,39 +126,44 @@ class Penguin(object):
             pass
 
         # Find a mining job first.
-        for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
-            x, y = job.location
+        for designation in filter(lambda d: d['kind'] == 'mine',
+                                  self.team.designations):
+            loc = designation['location']
 
             # If we can't reach the mining job, skip it.
-            if not self.partition[y][x]:
+            if not self.partition[loc[1]][loc[0]]:
                 continue
 
             # If the mining job is reserved or already done, skip it.
-            if self.team.is_reserved('mine', job) or job.done:
+            if self.team.is_reserved('mine', designation) \
+               or designation['done']:
                 continue
 
             # Take the job.
-            def _complete_mining(job):
-                job.finish()
+            def _complete_mining(designation):
+                designation['done'] = True
                 self.task = None
                 self._look_for_job()
 
-            def _forget_job(job):
-                self.team.relinquish('mine', job)
+            def _forget_job(designation):
+                self.team.relinquish('mine', designation)
                 self.task = None
                 self._look_for_job()
 
-            def _start_mining(job):
-                task = TaskMine(self._stage, self, (x, y),
+            def _start_mining(designation):
+                task = TaskMine(self._stage, self, loc,
                                 finished_proc = \
-                                  partial(_complete_mining, job))
+                                  partial(_complete_mining,
+                                          designation))
                 self.task = task
 
-            task = TaskGo(self._stage, self, (x, y),
-                          blocked_proc=partial(_forget_job, job),
-                          finished_proc=partial(_start_mining, job))
+            task = TaskGo(self._stage, self, loc,
+                          blocked_proc=\
+                            partial(_forget_job, designation),
+                          finished_proc=\
+                            partial(_start_mining, designation))
             self.task = task
-            self.team.reserve('mine', job)
+            self.team.reserve('mine', designation)
 
             # We have a job now, so stop searching.
             return
@@ -376,7 +372,6 @@ if __name__ == '__main__':
                       - math.floor(SCREEN_LOGICAL_WIDTH / 2.0),
                     player_start_y + 8
                       - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0))
-    jobs = []
 
     # for now, stockpiles will be just for fish...
     stockpiles = []
@@ -392,7 +387,6 @@ if __name__ == '__main__':
         penguins.append(Penguin(player_team, ident, stage,
                                 math.floor(player_start_x / 16) + x,
                                 math.floor(player_start_y / 16) + y,
-                                jobs,
                                 stockpiles))
         ident += 1
 
@@ -538,14 +532,22 @@ if __name__ == '__main__':
                                     if tid is None:
                                         pass
                                     elif tid == 2:
-                                        job_exists = False
-                                        for job in jobs:
-                                            loc = job.location
+                                        designations = \
+                                          player_team.designations
+
+                                        already_exists = False
+                                        for designation in designations:
+                                            loc = designation['location']
                                             if loc == (x, y):
-                                                job_exists = True
+                                                already_exists = True
                                                 break
-                                        if not job_exists:
-                                            jobs.append(MineJob((x, y)))
+
+                                        if not already_exists:
+                                            designations.append({
+                                                'kind': 'mine',
+                                                'location': (x, y),
+                                                'done': False
+                                            })
                         elif selected_tool == 'stockpile':
                             # Check if this conflicts with existing stockpiles.
                             conflicts = False
@@ -602,10 +604,10 @@ if __name__ == '__main__':
                         * SCROLL_FACTOR
             drag_origin = mouse_x, mouse_y
 
-        # Delete finished jobs.
-        for job in jobs:
-            if job.done:
-                jobs.remove(job)
+        # Delete finished designations.
+        for designation in player_team.designations:
+            if designation['done']:
+                player_team.designations.remove(designation)
 
         # Update the game state every turn.
         if subturn == 0:
@@ -630,12 +632,12 @@ if __name__ == '__main__':
         # Draw bugs.
         bug_draw_system.update(virtual_screen, tileset, camera)
 
-        # Hilight MineJob designated areas.
-        for job in filter(lambda x: isinstance(x, MineJob), jobs):
-            pos = job.location
+        # Hilight designations.
+        for designation in player_team.designations:
+            loc = designation['location']
             virtual_screen.blit(tileset,
                                 camera.transform_game_to_screen(
-                                  pos, scalar=16),
+                                  loc, scalar=16),
                                 (160, 0, 16, 16))
 
         # Draw the selection box under the cursor if there is one.
