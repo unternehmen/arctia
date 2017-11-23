@@ -24,7 +24,7 @@ class Team(object):
         Make a reservation of a given kind on an object.
 
         Arguments:
-            kind: the kind of object
+            kind: the kind of reservation
             obj: the object
         """
         self._assert_is_legal_kind(kind)
@@ -37,7 +37,7 @@ class Team(object):
         Delete a reservation of a given kind on an object.
 
         Arguments:
-            kind: the kind of object
+            kind: the kind of reservation
             obj: the object
         """
         self._assert_is_legal_kind(kind)
@@ -50,7 +50,7 @@ class Team(object):
         Return whether a reservation of the given kind is on an object.
 
         Arguments:
-            kind: the kind of object
+            kind: the kind of reservation
             obj: the object
 
         Returns: whether the entity is reserved
