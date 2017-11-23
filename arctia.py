@@ -14,7 +14,7 @@ from common import *
 from camera import Camera
 from stage import Stage
 from stockpile import Stockpile
-from job import HaulJob, MineJob
+from job import MineJob
 from task import TaskGo, TaskMine, TaskTake, TaskDrop, TaskTrade, TaskGoToAnyMatchingSpot
 from systems import UnitDispatchSystem, UnitDrawSystem, \
                     PartitionUpdateSystem
@@ -136,7 +136,7 @@ class Penguin(object):
 
         # Find a mining job first.
         for job in filter(lambda j: isinstance(j, MineJob), self._jobs):
-            x, y = job.locations[0]
+            x, y = job.location
 
             # If we can't reach the mining job, skip it.
             if not self.partition[y][x]:
@@ -377,10 +377,6 @@ if __name__ == '__main__':
                     player_start_y + 8
                       - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0))
     jobs = []
-    for entity in stage.entities:
-        kind, x, y = entity
-        if kind == 'fish':
-            jobs.append(HaulJob(entity))
 
     # for now, stockpiles will be just for fish...
     stockpiles = []
@@ -544,7 +540,7 @@ if __name__ == '__main__':
                                     elif tid == 2:
                                         job_exists = False
                                         for job in jobs:
-                                            loc = job.locations[0]
+                                            loc = job.location
                                             if loc == (x, y):
                                                 job_exists = True
                                                 break
@@ -636,7 +632,7 @@ if __name__ == '__main__':
 
         # Hilight MineJob designated areas.
         for job in filter(lambda x: isinstance(x, MineJob), jobs):
-            pos = job.locations[0]
+            pos = job.location
             virtual_screen.blit(tileset,
                                 camera.transform_game_to_screen(
                                   pos, scalar=16),

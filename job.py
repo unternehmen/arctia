@@ -13,23 +13,6 @@ class Job(object):
             a new Job
         """
         self.done = False
-        self.reserved = False
-
-    def reserve(self):
-        """
-        Reserve the Job.
-
-        This lets mobs know that this Job is already taken.
-        """
-        self.reserved = True
-
-    def relinquish(self):
-        """
-        Relinquish the Job.
-
-        This lets mobs know that this Job is free for the taking.
-        """
-        self.reserved = False
 
     def finish(self):
         """
@@ -54,38 +37,4 @@ class MineJob(Job):
         Returns: a new MineJob
         """
         Job.__init__(self)
-        self.locations = [location]
-
-
-class HaulJob(Job):
-    """
-    A HaulJob represents the task of picking up and moving something.
-    """
-    def __init__(self, entity):
-        """
-        Create a new HaulJob.
-
-        Arguments:
-            entity: the entity that needs to be hauled
-
-        Returns: a new HaulJob.
-        """
-        Job.__init__(self)
-        self.entity = entity
-        self.slot_location = None
-        self.stockpile = None
-
-    def finish(self):
-        #self.stockpile.relinquish_slot(self.slot_location)
-        super().finish()
-
-    def relinquish(self):
-        super().relinquish()
-
-        if self.stockpile and self.slot_location:
-            #self.stockpile.relinquish_slot(self.slot_location)
-            pass
-
-    @property
-    def locations(self):
-        return [self.entity.location]
+        self.location = location
