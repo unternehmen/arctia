@@ -460,11 +460,7 @@ if __name__ == '__main__':
                                 #print('    reserved:', ent.reserved)
                             for penguin in penguins:
                                 if (penguin.x, penguin.y) == target:
-                                    print('  Penguin:')
-                                    if penguin._current_job:
-                                        print('    job:', penguin._current_job.__class__.__name__)
-                                    else:
-                                        print('    job: none')
+                                    print('  Penguin')
                             for stock in player_team.stockpiles:
                                 if stock.x <= target[0] < stock.x + stock.width \
                                    and stock.y <= target[1] < stock.y + stock.height:
