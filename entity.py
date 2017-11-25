@@ -8,10 +8,3 @@ class Entity(object):
 
         self.location = location
         self.kind = kind
-        self.reserved = False
-
-    def reserve(self):
-        self.reserved = True
-
-    def relinquish(self):
-        self.reserved = False
