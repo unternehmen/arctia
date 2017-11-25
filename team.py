@@ -3,7 +3,7 @@ The team module provides a class (Team) for coordinating units.
 """
 class Team(object):
     """
-    A Team allows units to coordinate, i.e., reserve things.
+    A Team allows units to obey designations and make reservations.
     """
     def __init__(self):
         self.designations = []
