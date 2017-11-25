@@ -57,7 +57,7 @@ class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
     """
-    def __init__(self, team, ident, stage, x, y, stockpiles):
+    def __init__(self, team, ident, stage, x, y):
         """
         Create a new Penguin.
 
@@ -67,7 +67,6 @@ class Penguin(object):
             stage: the Stage the penguin exists in
             x: the x coordinate of the penguin
             y: the y coordinate of the penguin
-            stockpiles: the global list of Stockpiles
 
         Returns: a new Penguin
         """
@@ -97,7 +96,6 @@ class Penguin(object):
 
         ## External data
         self._stage = stage
-        self._stockpiles = stockpiles
 
     def draw(self, screen, tileset, camera):
         """
@@ -169,7 +167,7 @@ class Penguin(object):
             return
 
         # Otherwise, find a hauling job.
-        for stock in self._stockpiles:
+        for stock in self.team.stockpiles:
             # If we cannot reach the stockpile, skip it.
             if not self.partition[stock.y][stock.x]:
                 continue
@@ -202,7 +200,7 @@ class Penguin(object):
 
             # Find an entity that needs to be stored in the stockpile.
             def _entity_is_stockpiled(entity, x, y):
-                for stock in self._stockpiles:
+                for stock in self.team.stockpiles:
                     if entity.kind in stock.accepted_kinds \
                        and x >= stock.x \
                        and x < stock.x + stock.width \
@@ -374,7 +372,6 @@ if __name__ == '__main__':
                       - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0))
 
     # for now, stockpiles will be just for fish...
-    stockpiles = []
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     mobs = []
     penguins = []
@@ -386,8 +383,7 @@ if __name__ == '__main__':
     for x, y in penguin_offsets:
         penguins.append(Penguin(player_team, ident, stage,
                                 math.floor(player_start_x / 16) + x,
-                                math.floor(player_start_y / 16) + y,
-                                stockpiles))
+                                math.floor(player_start_y / 16) + y))
         ident += 1
 
     mobs += penguins
@@ -476,7 +472,7 @@ if __name__ == '__main__':
                                         print('    job:', penguin._current_job.__class__.__name__)
                                     else:
                                         print('    job: none')
-                            for stock in stockpiles:
+                            for stock in player_team.stockpiles:
                                 if stock.x <= target[0] < stock.x + stock.width \
                                    and stock.y <= target[1] < stock.y + stock.height:
                                     print('  Stock slot: ', end='')
@@ -494,10 +490,10 @@ if __name__ == '__main__':
                             # Delete the chosen stockpile
                             target = camera.transform_screen_to_game(
                                        (mx, my), divisor=16)
-                            for stock in stockpiles:
+                            for stock in player_team.stockpiles:
                                 if stock.x <= target[0] < stock.x + stock.width \
                                    and stock.y <= target[1] < stock.y + stock.height:
-                                    stockpiles.remove(stock)
+                                    player_team.stockpiles.remove(stock)
                                     break
                 elif event.button == 3:
                     # Begin dragging the screen.
@@ -551,7 +547,7 @@ if __name__ == '__main__':
                         elif selected_tool == 'stockpile':
                             # Check if this conflicts with existing stockpiles.
                             conflicts = False
-                            for stock in stockpiles:
+                            for stock in player_team.stockpiles:
                                 sx, sy = stock.x, stock.y
                                 sw, sh = stock.width, stock.height
                                 if not (sx > right \
@@ -585,7 +581,7 @@ if __name__ == '__main__':
                                                    right - left + 1,
                                                    bottom - top + 1),
                                                    ['fish'])
-                                stockpiles.append(stock)
+                                player_team.stockpiles.append(stock)
 
                 elif event.button == 3:
                     # Stop dragging the screen.
@@ -626,7 +622,7 @@ if __name__ == '__main__':
             penguin.draw(virtual_screen, tileset, camera)
 
         # Draw stockpiles.
-        for pile in stockpiles:
+        for pile in player_team.stockpiles:
             pile.draw(virtual_screen, tileset, camera)
 
         # Draw bugs.

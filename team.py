@@ -12,7 +12,6 @@ class Team(object):
             'location': [],
             'mine': []
         }
-        print('Dont forget to put stockpiles into the Team object')
         self.stockpiles = []
 
     def _assert_is_legal_kind(self, kind):
