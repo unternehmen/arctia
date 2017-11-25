@@ -1,3 +1,6 @@
+"""
+The stage module provides a class representing the game world.
+"""
 import math
 import random
 import pytmx
@@ -6,6 +9,13 @@ from config import SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT
 from common import make_2d_constant_array
 
 class Stage(object):
+    """
+    A Stage represents the game world, including tiles, objects, etc.
+
+    Arguments:
+        path: a path to a .tmx file containing the stage data
+              (see examples in "maps/")
+    """
     def __init__(self, path):
         tiled_map = \
             pytmx.TiledMap(path)
@@ -14,28 +24,27 @@ class Stage(object):
         self.width = tiled_map.width
         self.height = tiled_map.height
         self.data = make_2d_constant_array(self.width, self.height, 0)
-        self.entity_matrix = \
+        self._entity_matrix = \
           make_2d_constant_array(self.width, self.height, None)
 
         # The list of on-stage entities and their coordinates.
         # Contains tuples of the following format: (entity, x, y)
-        self.entity_list = []
+        self._entity_list = []
 
         player_start_obj = \
             tiled_map.get_object_by_name('Player Start')
-        self.player_start_x = player_start_obj.x
-        self.player_start_y = player_start_obj.y
+        player_start_x = player_start_obj.x
+        player_start_y = player_start_obj.y
+        self.player_start_loc = player_start_x, player_start_y
 
         self._tile_change_listeners = []
-
-        self.entities = []
 
         for layer_ref in tiled_map.visible_tile_layers:
             layer = tiled_map.layers[layer_ref]
             for x, y, img in layer.tiles():
-                tx = math.floor(img[1][0] / 16)
-                ty = math.floor(img[1][1] / 16)
-                tid = ty * 16 + tx
+                target_x = math.floor(img[1][0] / 16)
+                target_y = math.floor(img[1][1] / 16)
+                tid = target_y * 16 + target_x
 
                 # Some tiles add an entity instead of a tile.
                 if tid == 4:
@@ -51,36 +60,59 @@ class Stage(object):
                 self.data[y][x] = tid
 
     def register_tile_change_listener(self, listener):
+        """
+        Register an object to be signalled whenever a tile changes.
+
+        The listening object must have a method called tile_changed
+        accepting the previous tile ID, the new tile ID, and the
+        position as a pair of (x, y) coordinates.  For example:
+
+            def tile_changed(self, prev_tid, cur_tid, position)
+
+        Whenever a tile changes on this Stage, the tile_changed
+        method will be called on every listener.
+
+        Argument:
+            listener: the object to signal when a tile changes
+        """
         self._tile_change_listeners.append(listener)
 
     def _draw_tile_at(self, screen, tileset, camera, loc):
         x, y = loc
         tid = self.data[y][x]
-        tx = tid % 16
-        ty = math.floor(tid / 16)
+        target_x = tid % 16
+        target_y = math.floor(tid / 16)
         screen.blit(tileset,
                     camera.transform_game_to_screen(
-                      (x, y), scalar=16),
-                    (tx * 16, ty * 16, 16, 16))
+                        (x, y), scalar=16),
+                    (target_x * 16, target_y * 16, 16, 16))
 
     def _draw_entity_at(self, screen, tileset, camera, loc):
         x, y = loc
-        if self.entity_matrix[y][x]:
-            kind = self.entity_matrix[y][x].kind
+        if self._entity_matrix[y][x]:
+            kind = self._entity_matrix[y][x].kind
 
             if kind == 'rock':
-                tx = 6
+                target_x = 6
             elif kind == 'bug':
-                tx = 7
+                target_x = 7
             elif kind == 'fish':
-                tx = 4
+                target_x = 4
 
             screen.blit(tileset,
                         camera.transform_game_to_screen(
-                          (x, y), scalar=16),
-                        (tx * 16, 0, 16, 16))
+                            (x, y), scalar=16),
+                        (target_x * 16, 0, 16, 16))
 
     def draw(self, screen, tileset, camera):
+        """
+        Draw the visible map area onto a screen.
+
+        Arguments:
+            screen: the screen to draw on
+            tileset: the tileset to use for tiles and objects
+            camera: the Camera to draw with
+        """
         clip_left = math.floor(camera.x / 16)
         clip_top = math.floor(camera.y / 16)
         clip_width = math.floor(SCREEN_LOGICAL_WIDTH / 16)
@@ -97,15 +129,40 @@ class Stage(object):
                 self._draw_entity_at(*args)
 
     def get_player_start_pos(self):
-        return self.player_start_x, self.player_start_y
+        """
+        Return the default starting location of the player.
+
+        Returns: the default starting location of the player
+        """
+        return self.player_start_loc
 
     def get_tile_at(self, x, y):
+        """
+        Return the ID of the tile at (x, y), or None if off-map.
+
+        Arguments:
+            x: the x coordinate of the tile
+            y: the y coordinate of the tile
+
+        Returns: the tile ID of the tile at (x, y),
+                 or None if the coordinates are off-map
+        """
         if x < 0 or x >= self.width or y < 0 or y >= self.height:
             return None
 
         return self.data[y][x]
 
     def set_tile_at(self, x, y, tid):
+        """
+        Set the tile at (x, y) to the tile ID tid.
+
+        The coordinates must actually be within the Stage.
+
+        Arguments:
+            x: the x coordinate of the tile to change
+            y: the y coordinate of the tile to change
+            tid: the tile ID the tile should be changed to
+        """
         assert x >= 0
         assert x < self.width
         assert y >= 0
@@ -125,17 +182,18 @@ class Stage(object):
 
         Arguments:
             entity: the entity
+            location: the location at which to place the entity
         """
         x, y = location
 
         assert 0 <= x < self.width
         assert 0 <= y < self.height
-        assert not self.entity_matrix[y][x], \
+        assert not self._entity_matrix[y][x], \
                'location is not empty: x=%d, y=%d' % (x, y)
 
         entity.location = location
-        self.entity_matrix[y][x] = entity
-        self.entity_list.append((entity, x, y))
+        self._entity_matrix[y][x] = entity
+        self._entity_list.append((entity, x, y))
 
     def create_entity(self, kind, location):
         """
@@ -157,13 +215,10 @@ class Stage(object):
         """
         for y in range(self.height):
             for x in range(self.width):
-                if self.entity_matrix[y][x] == entity:
-                    self.entity_matrix[y][x] = None
-                    self.entity_list.remove((entity, x, y))
+                if self._entity_matrix[y][x] == entity:
+                    self._entity_matrix[y][x] = None
+                    self._entity_list.remove((entity, x, y))
                     entity.location = None
-
-    def update(self):
-        pass
 
     def find_entity(self, condition):
         """
@@ -178,13 +233,21 @@ class Stage(object):
             a tuple (entity, (x, y)) if an entity was accepted,
             or None if no entity was accepted
         """
-        random.shuffle(self.entity_list)
-        for ent, x, y in self.entity_list:
+        random.shuffle(self._entity_list)
+        for ent, x, y in self._entity_list:
             if condition(ent, x, y):
                 return ent, (x, y)
 
         return None
 
     def entity_at(self, location):
+        """
+        Return the entity at a location if there is one, otherwise None.
+
+        Arguments:
+            location: the pair of coordinates (x, y)
+
+        Returns: the entity at the location, or None if there is none
+        """
         x, y = location
-        return self.entity_matrix[y][x]
+        return self._entity_matrix[y][x]
