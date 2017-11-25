@@ -14,6 +14,9 @@ def reconstruct_path(step_matrix, initial):
     Arguments:
         step_matrix: the step matrix
         initial: a pair of coordinates (x, y) the initial point
+
+    Returns: the steps in the path as a list, including both endpoints,
+             e.g., [(0, 0), (1, 1), (2, 2)]
     """
     current = initial
     total_path = [current]
