@@ -164,15 +164,22 @@ class UnitDispatchSystem(object):
                                    partial(_forget_task, unit))
 
     def _seek_eating_job(self, unit):
-        def _forget_task(unit):
+        def _forget_task(unit, entity):
             unit.task = None
+            if unit.team:
+                unit.team.relinquish('entity', entity)
 
         if not unit.task and unit.hunger >= unit.hunger_threshold:
             # Find a piece of food the unit can reach.
             def _is_valid_food(unit, entity, _unused_x, _unused_y):
                 kind = entity.kind
                 x, y = entity.location
-                return unit.partition[y][x] and kind in unit.hunger_diet
+                reserved = False
+                if unit.team:
+                    reserved = unit.team.is_reserved('entity', entity)
+                return unit.partition[y][x] \
+                       and kind in unit.hunger_diet \
+                       and not reserved
 
             result = \
               self._stage.find_entity(partial(_is_valid_food, unit))
@@ -184,16 +191,20 @@ class UnitDispatchSystem(object):
                     unit.task = TaskEat(self._stage,
                                         unit, entity,
                                         interrupted_proc=\
-                                          partial(_forget_task, unit),
+                                          partial(_forget_task,
+                                                  unit, entity),
                                         finished_proc=\
-                                          partial(_forget_task, unit))
+                                          partial(_forget_task,
+                                                  unit, entity))
 
+                if unit.team:
+                    unit.team.reserve('entity', entity)
                 unit.task = TaskGo(self._stage, unit,
                                    entity.location,
                                    delay=unit.movement_delay,
                                    blocked_proc=\
                                      partial(_forget_task,
-                                             unit),
+                                             unit, entity),
                                    finished_proc=\
                                      partial(_eat_food,
                                              unit, entity))
