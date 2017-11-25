@@ -140,27 +140,22 @@ if __name__ == '__main__':
     # for now, stockpiles will be just for fish...
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     mobs = []
-    penguins = []
     timeslice = 0
     ident = 0
 
     player_team = Team()
 
     for x, y in penguin_offsets:
-        penguins.append(Penguin(player_team, ident, stage,
-                                math.floor(player_start_x / 16) + x,
-                                math.floor(player_start_y / 16) + y))
+        mobs.append(Penguin(player_team, ident, stage,
+                            math.floor(player_start_x / 16) + x,
+                            math.floor(player_start_y / 16) + y))
         ident += 1
 
-    mobs += penguins
-
-    bugs = [Gnoose(50, 50),
-            Bug(51, 50),
-            Bug(52, 50),
-            Bug(53, 50),
-            Bug(54, 50)]
-
-    mobs += bugs
+    mobs += [Gnoose(50, 50),
+             Bug(51, 50),
+             Bug(52, 50),
+             Bug(53, 50),
+             Bug(54, 50)]
 
     unit_dispatch_system = UnitDispatchSystem(stage)
     unit_draw_system = UnitDrawSystem()
