@@ -156,18 +156,24 @@ class UnitDispatchSystem(object):
                         # Make the unit go eat the food.
                         # unit - TaskGo doesn't recover if the object is
                         #       stolen by another unit (?)
-                        unit.task = TaskGo(self._stage, unit, entity.location,
-                                          delay=unit.movement_delay,
-                                          blocked_proc=partial(_forget_task, unit),
-                                          finished_proc=partial(_eat_food, unit, entity))
+                        unit.task = TaskGo(self._stage, unit,
+                                           entity.location,
+                                           delay=unit.movement_delay,
+                                           blocked_proc=\
+                                             partial(_forget_task,
+                                                     unit),
+                                           finished_proc=\
+                                             partial(_eat_food,
+                                                     unit, entity))
 
             if not unit.task:
                 # Choose whether to brood or to wander.
                 choices = ['wandering', 'brooding']
-                choices = list(
-                            filter(
-                              lambda obj: obj in unit.components,
-                              choices))
+                choices = \
+                    list(
+                        filter(
+                            lambda obj: obj in unit.components,
+                            choices))
                 selected = random.choice(choices)
 
                 if selected == 'wandering':
@@ -189,15 +195,17 @@ class UnitDispatchSystem(object):
 
                     # Go to our goal position.
                     unit.task = TaskGo(self._stage, unit, goal,
-                                      delay=unit.movement_delay + unit.wandering_delay,
-                                      blocked_proc=\
-                                        partial(_forget_task, unit),
-                                      finished_proc=\
-                                        partial(_forget_task, unit))
+                                       delay=\
+                                         unit.movement_delay \
+                                         + unit.wandering_delay,
+                                       blocked_proc=\
+                                         partial(_forget_task, unit),
+                                       finished_proc=\
+                                         partial(_forget_task, unit))
                 elif selected == 'brooding':
                     unit.task = TaskWait(duration=unit.brooding_duration,
-                                        finished_proc=\
-                                          partial(_forget_task, unit))
+                                         finished_proc=\
+                                           partial(_forget_task, unit))
 
             unit.hunger += 1
 
