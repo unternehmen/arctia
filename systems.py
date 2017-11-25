@@ -239,8 +239,11 @@ class UnitDispatchSystem(object):
                             partial(_start_mining, designation))
             unit.task = task
             unit.team.reserve('mine', designation)
+            return
 
     def _seek_hauling_job(self, unit):
+        assert unit.team, 'unit considered hauling but has no team'
+
         for stock in unit.team.stockpiles:
             # If we cannot reach the stockpile, skip it.
             if not unit.partition[stock.y][stock.x]:
@@ -402,6 +405,7 @@ class UnitDispatchSystem(object):
                 unit.task = None
 
             _start_haul_job(stock, entity, chosen_slot)
+            return
 
     def update(self):
         """
@@ -413,17 +417,18 @@ class UnitDispatchSystem(object):
             unit.task = None
 
         for unit in self._units:
-            if 'eating' in unit.components:
-                self._seek_eating_job(unit)
-
-            if not unit.task and 'mining' in unit.components:
-                self._seek_mining_job(unit)
-
-            if not unit.task and 'hauling' in unit.components:
-                self._seek_hauling_job(unit)
-
             if not unit.task:
-                self._seek_idling_job(unit)
+                if 'eating' in unit.components:
+                    self._seek_eating_job(unit)
+
+                if not unit.task and 'mining' in unit.components:
+                    self._seek_mining_job(unit)
+
+                if not unit.task and 'hauling' in unit.components:
+                    self._seek_hauling_job(unit)
+
+                if not unit.task:
+                    self._seek_idling_job(unit)
 
             if unit.task:
                 unit.task.enact()
