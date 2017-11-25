@@ -94,27 +94,17 @@ class Penguin(object):
         # The penguin's current task
         self.task = None
 
+        # The penguin's sprite clip
+        self.clip = (0, 0, 16, 16)
+
         ## External data
         self._stage = stage
-
-    def draw(self, screen, tileset, camera):
-        """
-        Draw the Penguin onto a screen or surface.
-
-        Arguments:
-            screen: the Pygame screen or surface
-            tileset: the tileset to use
-            camera: the camera to use
-        """
-        screen.blit(tileset,
-                    camera.transform_game_to_screen(
-                      (self.x, self.y), scalar=16),
-                    (0, 0, 16, 16))
 
     def _look_for_job(self):
         """
         Find a job to do.
         """
+
         assert not self.task, \
                'Penguin %s looked for a job but it already has a task!' % \
                  self.ident
@@ -396,12 +386,15 @@ if __name__ == '__main__':
 
     mobs += bugs
 
-    bug_dispatch_system = UnitDispatchSystem(stage)
-    bug_draw_system = UnitDrawSystem()
+    unit_dispatch_system = UnitDispatchSystem(stage)
+    unit_draw_system = UnitDrawSystem()
 
-    for bug in bugs:
-        bug_dispatch_system.add(bug)
-        bug_draw_system.add(bug)
+    for penguin in penguins:
+        unit_draw_system.add(penguin)
+
+    for unit in bugs:
+        unit_dispatch_system.add(unit)
+        unit_draw_system.add(unit)
 
     partition_system = PartitionUpdateSystem(stage, mobs)
 
@@ -610,7 +603,7 @@ if __name__ == '__main__':
             for penguin in penguins:
                 penguin.update()
 
-            bug_dispatch_system.update()
+            unit_dispatch_system.update()
 
         # Clear the screen.
         virtual_screen.fill((0, 0, 0))
@@ -618,15 +611,12 @@ if __name__ == '__main__':
         # Draw the world.
         stage.draw(virtual_screen, tileset, camera)
 
-        for penguin in penguins:
-            penguin.draw(virtual_screen, tileset, camera)
-
         # Draw stockpiles.
         for pile in player_team.stockpiles:
             pile.draw(virtual_screen, tileset, camera)
 
-        # Draw bugs.
-        bug_draw_system.update(virtual_screen, tileset, camera)
+        # Draw all units.
+        unit_draw_system.update(virtual_screen, tileset, camera)
 
         # Hilight designations.
         for designation in player_team.designations:
