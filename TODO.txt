@@ -1,0 +1,11 @@
+
+2017-11-24
+
+Penguin Smartness Project
+-------------------------
+
+Penguins should go to their stockpiles first for food.
+
+Furthermore, teams should keep a map of which stockpiles are
+closest to every point.  With this information, penguins can always
+visit the closest stockpile.
