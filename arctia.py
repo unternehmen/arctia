@@ -58,14 +58,12 @@ class Penguin(object):
     """
     A Penguin is a unit that follows the player's orders.
     """
-    def __init__(self, team, ident, stage, x, y):
+    def __init__(self, team, x, y):
         """
         Create a new Penguin.
 
         Arguments:
             team: the team this Penguin is on
-            ident: an identification number
-            stage: the Stage the penguin exists in
             x: the x coordinate of the penguin
             y: the y coordinate of the penguin
 
@@ -75,8 +73,6 @@ class Penguin(object):
         assert y >= 0 and y < stage.height
 
         ## Main data
-        # The penguin's identification number (used for debugging)
-        self.ident = ident
 
         # The penguin's location
         self.x = x
@@ -85,33 +81,22 @@ class Penguin(object):
         # The penguin's team
         self.team = team
 
+        # The penguin's sprite clip
+        self.clip = (0, 0, 16, 16)
+
         # The partition of the stage that this penguin can reach
         self.partition = None
-
-        ## Gameplay stats
 
         # The penguin's current task
         self.task = None
 
-        # The penguin's sprite clip
-        self.clip = (0, 0, 16, 16)
-
-        ## External data
-        self._stage = stage
-
-        ##
+        ## Gameplay stats
         self.movement_delay = 0
-
         self.hunger = 0
         self.hunger_threshold = 100
-        self.hunger_diet = {
-            'fish': 200
-        }
-
+        self.hunger_diet = { 'fish': 200 }
         self.wandering_delay = 1
-
         self.brooding_duration = 12
-
         self.components = ['eating', 'wandering', 'brooding',
                            'mining', 'hauling']
 
@@ -137,19 +122,16 @@ if __name__ == '__main__':
                     player_start_y + 8
                       - math.floor(SCREEN_LOGICAL_HEIGHT / 2.0))
 
-    # for now, stockpiles will be just for fish...
+    # Set up the starting mobs.
     penguin_offsets = [(0, 0), (1, -1), (-1, 1), (-1, -1), (1, 1)]
     mobs = []
-    timeslice = 0
-    ident = 0
 
     player_team = Team()
 
-    for x, y in penguin_offsets:
-        mobs.append(Penguin(player_team, ident, stage,
-                            math.floor(player_start_x / 16) + x,
-                            math.floor(player_start_y / 16) + y))
-        ident += 1
+    for dx, dy in penguin_offsets:
+        mobs.append(Penguin(player_team,
+                            math.floor(player_start_x / 16) + dx,
+                            math.floor(player_start_y / 16) + dy))
 
     mobs += [Gnoose(50, 50),
              Bug(51, 50),
@@ -157,6 +139,7 @@ if __name__ == '__main__':
              Bug(53, 50),
              Bug(54, 50)]
 
+    # Set up game systems
     unit_dispatch_system = UnitDispatchSystem(stage)
     unit_draw_system = UnitDrawSystem()
 
@@ -166,6 +149,7 @@ if __name__ == '__main__':
 
     partition_system = PartitionUpdateSystem(stage, mobs)
 
+    # UI elements
     drag_origin = None
     block_origin = None
 
