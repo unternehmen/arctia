@@ -7,6 +7,7 @@ setup(
     version='0.1.0',
     packages=find_packages(),
     install_requires=requirements,
+    include_package_data=True,
     tests_require=['nose==1.3.7'] + requirements,
     entry_points={
         'console_scripts': [
