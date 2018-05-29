@@ -16,38 +16,45 @@ To designate areas using tools, click on tiles within the world.
 
 To scroll across the map, right-click and drag.
 
-## Dependencies
-You need Python 3, Pygame, and PyTMX in order to run the game.
+## Running
+If you just want to play the game (without developing it), I recommend
+installing it with `pip` in one of the following ways.
 
-These are the versions I test it with:
+To install it straight from Github (requires Git):
 
-* Python 3.5.3
-* Pygame 1.9.3
-* PyTMX 3.21.3
+    pip install git+https://github.com/unternehmen/arctia
 
-You can get Python 3.5.3 at the Python website:
-<https://www.python.org/>
+To install it from a downloaded copy:
 
-The libraries Pygame and PyTMX can be installed thru Pip like so:
+    cd arctia-0.1.0   # Or whichever version you have
+    pip install .
 
-    pip install --user pygame==1.9.3
-    pip install --user pytmx==3.21.3
+After it is installed, you can run it with this command:
+
+    arctia
+
+## Developing
+On the other hand, if you want to develop the game, you should install
+it this way.  Clone the repository with Git, i.e.:
+
+    git clone https://github.com/unternehmen/arctia
+
+Then, navigate to the directory and install arctia as "editable":
+
+    cd arctia
+    pip install -e .
+
+Once it is installed, you can work on the source code as much as you
+want, and the installed copy will stay updated.  To run the program,
+just run the command:
+
+    arctia
 
 ## Testing
 There are some tests to make sure that certain parts of the code
-work correctly.  To run the tests, I use nose 1.3.7.  To install
-nose, you can use this command:
+work correctly.  To run the tests, you can run the following command:
 
-    pip install --user nose==1.3.7
-
-To run the tests, type the following:
-
-    nosetests -v tests
-
-## Running
-Just run:
-
-    python arctia.py
+    python setup.py test
 
 ## Screenshots
 
