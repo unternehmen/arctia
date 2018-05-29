@@ -1,6 +1,6 @@
 from common import tile_is_solid
-from astar import astar
-from breadth import find_path_to_matching
+from search import astar
+from search import find_path_to_matching
 import random
 
 # A Task is a unitary action that a unit should take.

@@ -1,6 +1,6 @@
 import os
 from stage import Stage
-from astar import astar
+from search import astar
 from common import tile_is_solid
 
 def _ensure_path_is_legal(stage, path):

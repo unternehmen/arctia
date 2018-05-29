@@ -1,6 +1,6 @@
 import os
 from stage import Stage
-from breadth import find_path_to_matching
+from search import find_path_to_matching
 
 def test_breadth_search_correct_results():
     def _point_is_water(point):
