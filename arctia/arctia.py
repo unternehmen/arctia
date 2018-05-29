@@ -176,7 +176,6 @@ def main():
     ]
     selected_tool = 'cursor'
 
-
     subturn = 0
     pygame.mixer.music.play(loops=-1)
     clock = pygame.time.Clock()
@@ -195,25 +194,8 @@ def main():
                             selected_tool = tools[math.floor(my / 16)]['ident']
                     else:
                         # Use the selected tool.
-                        if selected_tool == 'cursor':
-                            target = camera.transform_screen_to_game(
-                                       (mx, my), divisor=16)
-                            print('***')
-                            print('  Location:')
-                            if player_team.is_reserved('location', target):
-                                print('    reserved: yes')
-                            else:
-                                print('    reserved: no')
-                            ent = stage.entity_at(target)
-                            if ent:
-                                print('  Entity:', ent.kind)
-                                print('    location:', ent.location)
-                                if player_team.is_reserved('entity', ent):
-                                    print('    reserved: yes')
-                                else:
-                                    print('    reserved: no')
-                        elif selected_tool == 'mine' \
-                             or selected_tool == 'stockpile':
+                        if selected_tool == 'mine' \
+                           or selected_tool == 'stockpile':
                             target = camera.transform_screen_to_game(
                                        (mx, my), divisor=16)
                             block_origin = target
