@@ -151,7 +151,6 @@ def main():
 
     # UI elements
     drag_origin = None
-    block_origin = None
 
     tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile]
     current_tool = tools_list[0]
