@@ -1,10 +1,11 @@
-from bfont import BitmapFont
 import os
 import pygame
+from arctia.bfont import BitmapFont
+from arctia.resources import load_image
 
 def test_bfont_load():
     pygame.init()
-    font_img = pygame.image.load(os.path.join('gfx', 'fawnt.png'))
+    font_img = load_image('gfx/fawnt.png')
     chars = 'ABC'
 
     expected = [(1, 0, 7, 12),
@@ -20,7 +21,7 @@ def test_bfont_load():
 
 def test_bfont_measure():
     pygame.init()
-    font_img = pygame.image.load(os.path.join('gfx', 'fawnt.png'))
+    font_img = load_image('gfx/fawnt.png')
     chars = 'ABC'
     bfont = BitmapFont(chars, font_img)
     result = bfont.measure('BACAB\nAB')

@@ -1,9 +1,9 @@
-from stage import Stage
-from partition import partition
 import os
+from arctia.stage import Stage
+from arctia.partition import partition
 
 def test_partition_size():
-    stage = Stage(os.path.join('maps', 'test-valley.tmx'))
+    stage = Stage('maps/test-valley.tmx')
     result = partition(stage, (3, 11))
 
     assert len(result) == stage.height
@@ -23,17 +23,17 @@ def _assert_has_trues(matrix):
     assert has_trues
 
 def test_partition_has_trues_1():
-    stage = Stage(os.path.join('maps', 'test-valley.tmx'))
+    stage = Stage('maps/test-valley.tmx')
     result = partition(stage, (3, 11))
     _assert_has_trues(result)
 
 def test_partition_has_trues_2():
-    stage = Stage(os.path.join('maps', 'test-valley.tmx'))
+    stage = Stage('maps/test-valley.tmx')
     result = partition(stage, (10, 6))
     _assert_has_trues(result)
 
 def test_partition_equality():
-    stage = Stage(os.path.join('maps', 'test-valley.tmx'))
+    stage = Stage('maps/test-valley.tmx')
     result1 = partition(stage, (4, 7))
     result2 = partition(stage, (10, 6))
 
@@ -42,7 +42,7 @@ def test_partition_equality():
            assert result1[y][x] == result2[y][x]
 
 def test_partition_inequality():
-    stage = Stage(os.path.join('maps', 'test-valley.tmx'))
+    stage = Stage('maps/test-valley.tmx')
     result1 = partition(stage, (3, 11))
     result2 = partition(stage, (10, 6))
 
@@ -58,6 +58,6 @@ def test_partition_inequality():
     assert not all_equal
 
 def test_big_map_has_trues():
-    stage = Stage(os.path.join('maps', 'tuxville.tmx'))
+    stage = Stage('maps/tuxville.tmx')
     result = partition(stage, (26, 59))
     _assert_has_trues(result)
