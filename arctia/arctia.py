@@ -18,6 +18,7 @@ from .systems import UnitDispatchSystem, UnitDrawSystem, \
                     PartitionUpdateSystem
 from .team import Team
 from .resources import load_music, load_image
+from . import tools
 
 class Bug(object):
     def __init__(self, x=0, y=0):
@@ -152,29 +153,8 @@ def main():
     drag_origin = None
     block_origin = None
 
-    tools = [
-        {
-            'ident': 'cursor',
-            'label': 'Select'
-        },
-        {
-            'ident': 'mine',
-            'label': 'Mine'
-        },
-        {
-            'ident': 'haul',
-            'label': 'Not Implemented'
-        },
-        {
-            'ident': 'stockpile',
-            'label': 'Create Stockpile'
-        },
-        {
-            'ident': 'delete-stockpile',
-            'label': 'Delete Stockpile'
-        }
-    ]
-    selected_tool = 'cursor'
+    tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile]
+    current_tool = tools_list[0]
 
     subturn = 0
     pygame.mixer.music.play(loops=-1)
@@ -190,24 +170,14 @@ def main():
                 if event.button == 1:
                     if mx < MENU_WIDTH:
                         # Select a tool in the menu bar.
-                        if my < len(tools) * 16:
-                            selected_tool = tools[math.floor(my / 16)]['ident']
+                        if my < len(tools_list) * 16:
+                            current_tool = \
+                              tools_list[math.floor(my / 16)]
                     else:
                         # Use the selected tool.
-                        if selected_tool == 'mine' \
-                           or selected_tool == 'stockpile':
-                            target = camera.transform_screen_to_game(
-                                       (mx, my), divisor=16)
-                            block_origin = target
-                        elif selected_tool == 'delete-stockpile':
-                            # Delete the chosen stockpile
-                            target = camera.transform_screen_to_game(
-                                       (mx, my), divisor=16)
-                            for stock in player_team.stockpiles:
-                                if stock.x <= target[0] < stock.x + stock.width \
-                                   and stock.y <= target[1] < stock.y + stock.height:
-                                    player_team.stockpiles.remove(stock)
-                                    break
+                        current_tool.start_on_tile(
+                          camera.transform_screen_to_tile((mx, my)),
+                          player_team)
                 elif event.button == 3:
                     # Begin dragging the screen.
                     drag_origin = math.floor(event.pos[0] \
@@ -218,84 +188,9 @@ def main():
                 mx = math.floor(event.pos[0] / SCREEN_ZOOM)
                 my = math.floor(event.pos[1] / SCREEN_ZOOM)
                 if event.button == 1:
-                    if block_origin:
-                        ox, oy = block_origin
-                        block_origin = None
-                        target = camera.transform_screen_to_game(
-                                   (mx, my), divisor=16)
-
-                        left = min((target[0], ox))
-                        right = max((target[0], ox))
-                        top = min((target[1], oy))
-                        bottom = max((target[1], oy))
-
-                        if selected_tool == 'mine':
-                            for y in range(top, bottom + 1):
-                                for x in range(left, right + 1):
-                                    if x < 0 or x >= stage.width or \
-                                       y < 0 or y >= stage.height:
-                                        continue
-
-                                    tid = stage.get_tile_at(x, y)
-
-                                    if tid is None:
-                                        pass
-                                    elif tid == 2:
-                                        designations = \
-                                          player_team.designations
-
-                                        already_exists = False
-                                        for designation in designations:
-                                            loc = designation['location']
-                                            if loc == (x, y):
-                                                already_exists = True
-                                                break
-
-                                        if not already_exists:
-                                            designations.append({
-                                                'kind': 'mine',
-                                                'location': (x, y),
-                                                'done': False
-                                            })
-                        elif selected_tool == 'stockpile':
-                            # Check if this conflicts with existing stockpiles.
-                            conflicts = False
-                            for stock in player_team.stockpiles:
-                                sx, sy = stock.x, stock.y
-                                sw, sh = stock.width, stock.height
-                                if not (sx > right \
-                                        or sy > bottom \
-                                        or sx + sw <= left \
-                                        or sy + sh <= top):
-                                    conflicts = True
-                                    break
-
-                            all_walkable = True
-                            for y in range(top, bottom + 1):
-                                for x in range(left, right + 1):
-                                    if x < 0 or x >= stage.width or \
-                                       y < 0 or y >= stage.height:
-                                        all_walkable = False
-                                        break
-
-                                    tid = stage.get_tile_at(x, y)
-
-                                    if tid is None:
-                                        pass
-                                    elif tile_is_solid(tid):
-                                        all_walkable = False
-                                if not all_walkable:
-                                    break
-
-                            if not conflicts and all_walkable:
-                                # Make the new stockpile.
-                                stock = Stockpile(stage,
-                                                  (left, top,
-                                                   right - left + 1,
-                                                   bottom - top + 1),
-                                                   ['fish'])
-                                player_team.stockpiles.append(stock)
-
+                    current_tool.stop_on_tile(
+                      camera.transform_screen_to_tile((mx, my)),
+                      stage, player_team)
                 elif event.button == 3:
                     # Stop dragging the screen.
                     drag_origin = None
@@ -343,64 +238,27 @@ def main():
                                   loc, scalar=16),
                                 (160, 0, 16, 16))
 
-        # Draw the selection box under the cursor if there is one.
-        if not block_origin and mouse_x > MENU_WIDTH:
-            selection = camera.transform_screen_to_game(
-                          (mouse_x, mouse_y), divisor=16)
-            virtual_screen.blit(tileset,
-                                camera.transform_game_to_screen(
-                                  selection, scalar=16),
-                                (128, 0, 16, 16))
-
-        # Draw the designation rectangle if we are drawing a region.
-        if block_origin:
-            ox, oy = block_origin
-            target = camera.transform_screen_to_game((mouse_x, mouse_y), divisor=16)
-
-            left = min((target[0], ox))
-            right = max((target[0], ox))
-            top = min((target[1], oy))
-            bottom = max((target[1], oy))
-
-            top_left_coords     = camera.transform_game_to_screen(
-                                    (left, top), scalar=16),
-            top_right_coords    = translate(
-                                    camera.transform_game_to_screen(
-                                      (right, top), scalar=16),
-                                    (8, 0))
-            bottom_left_coords  = translate(
-                                    camera.transform_game_to_screen(
-                                      (left, bottom), scalar=16),
-                                    (0, 8))
-            bottom_right_coords = translate(
-                                    camera.transform_game_to_screen(
-                                      (right, bottom), scalar=16),
-                                    (8, 8))
-
-            virtual_screen.blit(tileset, top_left_coords, (128, 0, 8, 8))
-            virtual_screen.blit(tileset, bottom_left_coords, (128, 8, 8, 8))
-            virtual_screen.blit(tileset, top_right_coords, (136, 0, 8, 8))
-            virtual_screen.blit(tileset, bottom_right_coords, (136, 8, 8, 8))
+        # Draw stuff related to the current tool.
+        current_tool.draw(virtual_screen, camera, tileset, (mouse_x, mouse_y))
 
         # Draw the menu bar.
         pygame.draw.rect(virtual_screen,
                          (0, 0, 0),
                          (0, 0, MENU_WIDTH, SCREEN_LOGICAL_HEIGHT))
 
-        for i in range(len(tools)):
-            if selected_tool == tools[i]['ident']:
-                offset_y = 32
+        for i in range(len(tools_list)):
+            if current_tool == tools_list[i]:
+                clip = tools_list[i].active_icon_clip
             else:
-                offset_y = 16
-            virtual_screen.blit(tileset, (0, i * 16),
-                                (128 + i * 16, offset_y, 16, 16))
+                clip = tools_list[i].inactive_icon_clip
+            virtual_screen.blit(tileset, (0, i * 16), clip)
 
         # Draw the label of the currently hovered menu item.
         if mouse_x < MENU_WIDTH:
-            if mouse_y < len(tools) * 16:
+            if mouse_y < len(tools_list) * 16:
                 tool_idx = math.floor(mouse_y / 16.0)
                 bfont.write(virtual_screen,
-                            tools[tool_idx]['label'],
+                            tools_list[tool_idx].tooltip,
                             (17, tool_idx * 16 + 2))
 
         # Scale and draw onto the real screen.

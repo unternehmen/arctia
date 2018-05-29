@@ -15,6 +15,10 @@ SCREEN_LOGICAL_WIDTH = 256
 SCREEN_LOGICAL_HEIGHT = 240
 
 
+# The width and height of a tile.
+TILE_SIZE = 16
+
+
 # How many times to scale the screen.
 #
 # Since the sprites are small, you may want to scale up the game

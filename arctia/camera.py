@@ -5,7 +5,7 @@ Such transformations are necessary in order to blit game objects
 correctly and determine what tile the player has selected.
 """
 import math
-from .config import MENU_WIDTH
+from .config import MENU_WIDTH, TILE_SIZE
 
 class Camera(object):
     """
@@ -42,6 +42,17 @@ class Camera(object):
         return (math.floor((self.x + point_x - MENU_WIDTH) / divisor),
                 math.floor((self.y + point_y) / divisor))
 
+    def transform_screen_to_tile(self, point):
+        """
+        Same as transform_screen_to_game, but use tile size as divisor.
+
+        Arguments:
+          point: a pair of screen coordinates
+
+        Returns: a pair of tile coordinates
+        """
+        return self.transform_screen_to_game(point, divisor=TILE_SIZE)
+
     def transform_game_to_screen(self, point, scalar=1):
         """
         Transform game world coordinates into screen coordinates.
@@ -60,3 +71,15 @@ class Camera(object):
         """
         return (point[0] * scalar - self.x + MENU_WIDTH,
                 point[1] * scalar - self.y)
+
+    def transform_tile_to_screen(self, point):
+        """
+        Same as transform_game_to_screen, but use tile size as scalar.
+
+        Arguments:
+          point: a pair of screen coordinates
+
+        Returns: a pair of tile coordinates
+        """
+        return self.transform_game_to_screen(point, scalar=TILE_SIZE)
+
