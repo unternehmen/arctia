@@ -10,6 +10,25 @@ from .transform import translate
 from .task import TaskEat, TaskGo, TaskWait, TaskMine, TaskTake, \
                   TaskTrade, TaskGoToAnyMatchingSpot, TaskDrop
 
+def assign_tasks(unit, designation, deps, tasklist):
+    def abort():
+        if unit.team:
+            for kind, obj in deps:
+                unit.team.relinquish(kind, obj)
+        unit.task = None
+    def finish():
+        abort()
+        if designation:
+            designation['done'] = True
+    next_proc = finish
+    for task in reversed(tasklist):
+        def proc(task, next_proc):
+            unit.task = task(abort, next_proc)
+        next_proc = partial(proc, task, next_proc)
+    if unit.team:
+        for kind, obj in deps:
+            unit.team.reserve(kind, obj)
+    next_proc()
 
 def _refresh_partitions_of_mobs(stage, mobs):
     # This currently assumes that all mobs have
@@ -164,11 +183,6 @@ class UnitDispatchSystem(object):
                                    partial(_forget_task, unit))
 
     def _seek_eating_job(self, unit):
-        def _forget_task(unit, entity):
-            unit.task = None
-            if unit.team:
-                unit.team.relinquish('entity', entity)
-
         if not unit.task and unit.hunger >= unit.hunger_threshold:
             # Find a piece of food the unit can reach.
             def _is_valid_food(unit, entity, _unused_x, _unused_y):
@@ -187,27 +201,17 @@ class UnitDispatchSystem(object):
             if result:
                 entity, _ = result
 
-                def _eat_food(unit, entity):
-                    unit.task = TaskEat(self._stage,
-                                        unit, entity,
-                                        interrupted_proc=\
-                                          partial(_forget_task,
-                                                  unit, entity),
-                                        finished_proc=\
-                                          partial(_forget_task,
-                                                  unit, entity))
-
-                if unit.team:
-                    unit.team.reserve('entity', entity)
-                unit.task = TaskGo(self._stage, unit,
-                                   entity.location,
-                                   delay=unit.movement_delay,
-                                   blocked_proc=\
-                                     partial(_forget_task,
-                                             unit, entity),
-                                   finished_proc=\
-                                     partial(_eat_food,
-                                             unit, entity))
+                assign_tasks(unit, None,
+                             [('entity', entity)],
+                             [lambda abort, finish:
+                                TaskGo(self._stage, unit, entity.location,
+                                       delay=unit.movement_delay,
+                                       blocked_proc=abort,
+                                       finished_proc=finish),
+                              lambda abort, finish:
+                                TaskEat(self._stage, unit, entity,
+                                        interrupted_proc=abort,
+                                        finished_proc=finish)])
 
     def _seek_mining_job(self, unit):
         assert unit.team, 'unit considered mining but has no team'
@@ -227,30 +231,16 @@ class UnitDispatchSystem(object):
                 continue
 
             # Take the job.
-            def _complete_mining(designation):
-                designation['done'] = True
-                unit.task = None
-
-            def _forget_job(designation):
-                unit.team.relinquish('mine', designation)
-                unit.task = None
-
-            def _start_mining(designation):
-                loc = designation['location']
-                task = TaskMine(self._stage, unit, loc,
-                                finished_proc = \
-                                  partial(_complete_mining,
-                                          designation))
-                unit.task = task
-
-            task = TaskGo(self._stage, unit, loc,
-                          blocked_proc=\
-                            partial(_forget_job, designation),
-                          finished_proc=\
-                            partial(_start_mining, designation))
-            unit.task = task
-            unit.team.reserve('mine', designation)
-            return
+            assign_tasks(unit, designation,
+                         [('mine', designation)],
+                         [lambda abort, finish:
+                            TaskGo(self._stage, unit, loc,
+                                   blocked_proc=abort,
+                                   finished_proc=finish),
+                          lambda abort, finish:
+                            TaskMine(self._stage, unit, loc,
+                                     finished_proc=finish)])
+            break
 
     def _seek_hauling_job(self, unit):
         assert unit.team, 'unit considered hauling but has no team'
