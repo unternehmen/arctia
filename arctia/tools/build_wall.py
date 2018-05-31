@@ -30,10 +30,11 @@ def start_on_tile(pos, stage, player_team):
             'kind': 'build',
             'location': pos,
             'scaffold_jobs': scaffold_jobs,
+            'done': False
         }
         player_team.designations.extend(scaffold_jobs)
         player_team.designations.append(build_job)
-        print('Designations created:', scaffold_jobs + build_job)
+        print('Designations created:', scaffold_jobs + [build_job])
 
 def stop_on_tile(pos, stage, player_team):
     pass
