@@ -32,3 +32,16 @@ def make_2d_constant_array(width, height, value):
     Returns: the new array
     """
     return [[value for x in range(width)] for y in range(height)]
+
+def unit_can_reach(unit, location):
+    """
+    Return whether a unit can reach a location.
+
+    Arguments:
+        unit: the unit
+        location: the location
+
+    Returns: whether the unit can reach the location
+    """
+    x, y = location
+    return unit.partition[y][x]

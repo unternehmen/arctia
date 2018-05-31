@@ -153,7 +153,7 @@ def main():
     drag_origin = None
     block_origin = None
 
-    tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile]
+    tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile, tools.build_wall]
     current_tool = tools_list[0]
 
     subturn = 0
@@ -177,6 +177,7 @@ def main():
                         # Use the selected tool.
                         current_tool.start_on_tile(
                           camera.transform_screen_to_tile((mx, my)),
+                          stage,
                           player_team)
                 elif event.button == 3:
                     # Begin dragging the screen.

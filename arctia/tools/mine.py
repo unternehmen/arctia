@@ -9,7 +9,7 @@ active_icon_clip = (144, 32, 16, 16)
 
 _block_origin = None
 
-def start_on_tile(pos, player_team):
+def start_on_tile(pos, stage, player_team):
     global _block_origin
     _block_origin = pos
 
