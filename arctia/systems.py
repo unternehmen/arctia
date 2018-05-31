@@ -139,9 +139,6 @@ class UnitDispatchSystem(object):
         self._units.append(unit)
 
     def _seek_idling_job(self, unit):
-        def _forget_task(unit):
-            unit.task = None
-
         # Choose whether to brood or to wander.
         choices = ['wandering', 'brooding']
         choices = \
@@ -169,18 +166,19 @@ class UnitDispatchSystem(object):
                     goal = shifted
 
             # Go to our goal position.
-            unit.task = TaskGo(self._stage, unit, goal,
-                               delay=\
-                                 unit.movement_delay \
-                                 + unit.wandering_delay,
-                               blocked_proc=\
-                                 partial(_forget_task, unit),
-                               finished_proc=\
-                                 partial(_forget_task, unit))
+            assign_tasks(unit, None, [],
+                         [lambda abort, finish:
+                            TaskGo(self._stage, unit, goal,
+                                   delay=unit.movement_delay
+                                         + unit.wandering_delay,
+                                   blocked_proc=abort,
+                                   finished_proc=finish)])
         elif selected == 'brooding':
-            unit.task = TaskWait(duration=unit.brooding_duration,
-                                 finished_proc=\
-                                   partial(_forget_task, unit))
+            # Do nothing for the unit's brooding duration.
+            assign_tasks(unit, None, [],
+                         [lambda _unused_abort, finish:
+                            TaskWait(duration=unit.brooding_duration,
+                                     finished_proc=finish)])
 
     def _seek_eating_job(self, unit):
         if not unit.task and unit.hunger >= unit.hunger_threshold:
