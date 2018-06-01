@@ -30,12 +30,10 @@ class Build(object):
         # Prolong the task if a mob is in the way.
         for mob in self.stage.mobs:
             if (mob.x, mob.y) == self.target:
-                print('Mob in the way, prolonging job.')
                 return
 
         # Prolong the task if an entity is in the way.
         if self.stage.entity_at(self.target):
-            print('Mob in the way, prolonging job.')
             return
 
         # Otherwise, finish the task if it needs no more work.
