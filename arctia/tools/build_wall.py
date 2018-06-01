@@ -23,7 +23,7 @@ def start_on_tile(pos, stage, player_team):
     if not already_exists \
        and not tile_is_solid(stage.get_tile_at(*pos)):
         scaffold_jobs = []
-        for x in range(5):
+        for x in range(2):
             scaffold_jobs.append({
                 'kind': 'scaffold',
                 'hidden': True,
