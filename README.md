@@ -58,6 +58,9 @@ work correctly.  To run the tests, you can run the following command:
 
 ## Screenshots
 
+### Commit e5fdcee63005f020c4cad64385209555270f93ae
+![In this picture, some penguins are building a house in the tundra.](screen6.png)
+
 ### Commit 96698a3352e01aaff8c70d986c122655b199061d
 ![In this picture of the game, many penguins are standing in a cave with a pile of fish in one corner.  A hungry, purple insect is approaching the cave entrance.](screen5.png)
 
