@@ -7,8 +7,7 @@ import random
 from .common import tile_is_solid, unit_can_reach
 from .partition import partition
 from .transform import translate
-from .task import TaskEat, TaskGo, TaskWait, TaskMine, TaskTake, \
-                  TaskGoToAnyMatchingSpot, TaskDrop
+from .tasks import Eat, Go, Wait, Mine, Take, GoToAnyMatchingSpot, Drop
 from arctia.tasks import Contribute, Build, GoBeside
 
 def assign_tasks(unit, designation, deps, tasklist):
@@ -55,13 +54,13 @@ def assign_dump_job_func(stage, unit, entity, condition_func):
         assign_tasks(unit, None,
                      [('entity', entity)],
                      [lambda _unused_abort, finish:
-                        TaskGoToAnyMatchingSpot(
+                        GoToAnyMatchingSpot(
                           stage, unit,
                           condition_func=condition_func,
                           impossible_proc=_die_cannot_dump,
                           finished_proc=finish),
                       lambda abort, finish:
-                        TaskDrop(stage, entity, unit,
+                        Drop(stage, entity, unit,
                                  blocked_proc=
                                    do_both(
                                      abort,
@@ -215,7 +214,7 @@ class UnitDispatchSystem(object):
             # Go to our goal position.
             assign_tasks(unit, None, [],
                          [lambda abort, finish:
-                            TaskGo(self._stage, unit, goal,
+                            Go(self._stage, unit, goal,
                                    delay=unit.movement_delay
                                          + unit.wandering_delay,
                                    blocked_proc=abort,
@@ -224,7 +223,7 @@ class UnitDispatchSystem(object):
             # Do nothing for the unit's brooding duration.
             assign_tasks(unit, None, [],
                          [lambda _unused_abort, finish:
-                            TaskWait(duration=unit.brooding_duration,
+                            Wait(duration=unit.brooding_duration,
                                      finished_proc=finish)])
 
     def _try_assigning_eating_job(self, unit):
@@ -249,12 +248,12 @@ class UnitDispatchSystem(object):
                 assign_tasks(unit, None,
                              [('entity', entity)],
                              [lambda abort, finish:
-                                TaskGo(self._stage, unit, entity.location,
+                                Go(self._stage, unit, entity.location,
                                        delay=unit.movement_delay,
                                        blocked_proc=abort,
                                        finished_proc=finish),
                               lambda abort, finish:
-                                TaskEat(self._stage, unit, entity,
+                                Eat(self._stage, unit, entity,
                                         interrupted_proc=abort,
                                         finished_proc=finish)])
 
@@ -279,11 +278,11 @@ class UnitDispatchSystem(object):
             assign_tasks(unit, designation,
                          [('mine', designation)],
                          [lambda abort, finish:
-                            TaskGo(self._stage, unit, loc,
+                            Go(self._stage, unit, loc,
                                    blocked_proc=abort,
                                    finished_proc=finish),
                           lambda abort, finish:
-                            TaskMine(self._stage, unit, loc,
+                            Mine(self._stage, unit, loc,
                                      finished_proc=finish)])
             break
 
@@ -358,24 +357,24 @@ class UnitDispatchSystem(object):
                          [('location', chosen_slot),
                           ('entity', entity)],
                          [lambda abort, finish:
-                            TaskGo(self._stage, unit,
+                            Go(self._stage, unit,
                                    target=entity.location,
                                    delay=0,
                                    blocked_proc=abort,
                                    finished_proc=finish),
                           lambda abort, finish:
-                            TaskTake(self._stage, unit, entity,
+                            Take(self._stage, unit, entity,
                                      not_found_proc=abort,
                                      finished_proc=finish),
                           lambda abort, finish:
-                            TaskGo(self._stage, unit,
+                            Go(self._stage, unit,
                                    target=chosen_slot,
                                    delay=0,
                                    blocked_proc=
                                      do_both(abort, assign_dump_job),
                                    finished_proc=finish),
                           lambda abort, finish:
-                            TaskDrop(self._stage, entity, unit,
+                            Drop(self._stage, entity, unit,
                                      blocked_proc=
                                        do_both(abort, assign_dump_job),
                                      finished_proc=finish)])
@@ -411,13 +410,13 @@ class UnitDispatchSystem(object):
         assign_tasks(unit, None,
                      [('entity', entity)],
                      [lambda abort, finish:
-                        TaskGo(self._stage, unit,
+                        Go(self._stage, unit,
                                target=entity.location,
                                delay=0,
                                blocked_proc=abort,
                                finished_proc=finish),
                       lambda abort, finish:
-                        TaskTake(self._stage, unit, entity,
+                        Take(self._stage, unit, entity,
                                  not_found_proc=abort,
                                  finished_proc=
                                    do_both(
@@ -457,20 +456,20 @@ class UnitDispatchSystem(object):
                   [('entity', entity),
                    ('designation', job)],
                   [lambda abort, finish:
-                     TaskGo(stage=self._stage,
+                     Go(stage=self._stage,
                             unit=unit,
                             target=entity.location,
                             delay=0,
                             blocked_proc=abort,
                             finished_proc=finish),
                    lambda abort, finish:
-                     TaskTake(stage=self._stage,
+                     Take(stage=self._stage,
                               unit=unit,
                               entity=entity,
                               not_found_proc=abort,
                               finished_proc=finish),
                    lambda abort, finish:
-                     TaskGo(
+                     Go(
                        stage=self._stage,
                        unit=unit,
                        target=dependent['location'],
