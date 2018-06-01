@@ -123,8 +123,6 @@ class PartitionUpdateSystem(object):
             _unused_cur_id: this argument is not used
             coords: the (x, y) coordinates of the changed tile
         """
-        x, y = coords
-
         # Determine which mobs need partition refreshs.
         mobs_to_refresh = []
 
@@ -133,10 +131,7 @@ class PartitionUpdateSystem(object):
 
             for dy in (-1, 0, 1):
                 for dx in (-1, 0, 1):
-                    other_x, other_y = \
-                      translate((x, y), (dx, dy))
-
-                    if mob.partition[other_y][other_x]:
+                    if unit_can_reach(mob, translate(coords, (dx, dy))):
                         need_refresh = True
                         break
                 if need_refresh:
@@ -231,11 +226,10 @@ class UnitDispatchSystem(object):
             # Find a piece of food the unit can reach.
             def _is_valid_food(unit, entity, _unused_x, _unused_y):
                 kind = entity.kind
-                x, y = entity.location
                 reserved = False
                 if unit.team:
                     reserved = unit.team.is_reserved('entity', entity)
-                return unit.partition[y][x] \
+                return unit_can_reach(unit, entity.location) \
                        and kind in unit.hunger_diet \
                        and not reserved
 
@@ -266,7 +260,7 @@ class UnitDispatchSystem(object):
             loc = designation['location']
 
             # If we can't reach the mining job, skip it.
-            if not unit.partition[loc[1]][loc[0]]:
+            if not unit_can_reach(unit, loc):
                 continue
 
             # If the mining job is reserved or already done, skip it.
@@ -292,7 +286,7 @@ class UnitDispatchSystem(object):
 
         for stock in unit.team.stockpiles:
             # If we cannot reach the stockpile, skip it.
-            if not unit.partition[stock.y][stock.x]:
+            if not unit_can_reach(unit, (stock.x, stock.y)):
                 continue
 
             # Determine whether the stockpile is full or not.
@@ -335,7 +329,7 @@ class UnitDispatchSystem(object):
             result = \
               self._stage.find_entity(
                 lambda e, x, y: \
-                  unit.partition[y][x] \
+                  unit_can_reach(unit, (x, y)) \
                   and e.kind in accepted_kinds \
                   and not unit.team.is_reserved('entity', e) \
                   and not _entity_is_stockpiled(e, x, y))
@@ -384,7 +378,7 @@ class UnitDispatchSystem(object):
         # Find a stockpile that has an unfitting item in it.
         found = False
         for stockpile in unit.team.stockpiles:
-            if not unit.partition[stockpile.y][stockpile.x]:
+            if not unit_can_reach(unit, (stockpile.x, stockpile.y)):
                 continue
             for y in range(stockpile.y,
                            stockpile.y + stockpile.height):
