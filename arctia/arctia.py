@@ -95,7 +95,7 @@ class Penguin(object):
         ## Gameplay stats
         self.movement_delay = 0
         self.hunger = 0
-        self.hunger_threshold = 100
+        self.hunger_threshold = 200
         self.hunger_diet = { 'fish': 200 }
         self.wandering_delay = 1
         self.brooding_duration = 12
@@ -138,6 +138,10 @@ def main():
              Bug(52, 50),
              Bug(53, 50),
              Bug(54, 50)]
+
+    # bug - there's got to be a better way to put the list of mobs
+    #     into the stage object
+    stage.mobs = mobs
 
     # Set up game systems
     unit_dispatch_system = UnitDispatchSystem(stage)

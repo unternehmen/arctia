@@ -16,12 +16,15 @@ def start_on_tile(pos, stage, player_team):
             scaffold_jobs.append({
                 'kind': 'scaffold',
                 'hidden': True,
+                'location': pos,
                 'resource':
                   lambda unit:
                     stage.find_entity(
                       partial(
                         lambda unit, entity, _unused_x, _unused_y:
                           unit_can_reach(unit, entity.location) \
+                          and not unit.team.is_reserved('entity',
+                                                        entity) \
                           and entity.kind == 'rock',
                         unit)),
                 'done': False
@@ -37,7 +40,6 @@ def start_on_tile(pos, stage, player_team):
             scaffold_job['dependent'] = build_job
         player_team.designations.extend(scaffold_jobs)
         player_team.designations.append(build_job)
-        print('Designations created:', scaffold_jobs + [build_job])
 
 def stop_on_tile(pos, stage, player_team):
     pass

@@ -22,6 +22,7 @@ class Stage(object):
 
         assert tiled_map is not None
 
+        self.mobs = []
         self.width = tiled_map.width
         self.height = tiled_map.height
         self.data = make_2d_constant_array(self.width, self.height, 0)
@@ -53,9 +54,6 @@ class Stage(object):
                     tid = 1
                 elif tid == 6:
                     self.create_entity('rock', (x, y))
-                    tid = 1
-                elif tid == 7:
-                    self.create_entity('bug', (x, y))
                     tid = 1
 
                 self.data[y][x] = tid
