@@ -5,8 +5,8 @@ from ..common import tile_is_solid, unit_can_reach
 
 
 tooltip = 'Build Wall'
-inactive_icon_clip = (144, 16, 16, 16)
-active_icon_clip = (144, 32, 16, 16)
+inactive_icon_clip = (208, 16, 16, 16)
+active_icon_clip = (208, 32, 16, 16)
 
 
 def start_on_tile(pos, stage, player_team):
