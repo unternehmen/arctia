@@ -47,8 +47,6 @@ def start_on_tile(pos, stage, player_team):
             'collected_goods': [],
             'done': False
         }
-        for scaffold_job in scaffold_jobs:
-            scaffold_job['dependent'] = build_job
         player_team.designations.extend(scaffold_jobs)
         player_team.designations.append(build_job)
 

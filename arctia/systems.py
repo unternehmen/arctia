@@ -433,7 +433,13 @@ class UnitDispatchSystem(object):
         jobs = unit.team.get_unreserved_designations('scaffold')
 
         for job in jobs:
-            if not unit_can_reach(unit, job['dependent']['location']):
+            dependent = None
+            for des in unit.team.designations:
+                if des['kind'] == 'build':
+                    if job in des['scaffold_jobs']:
+                        dependent = des
+                        break
+            if not unit_can_reach(unit, dependent['location']):
                 continue
 
             entity, _ = job['resource'](unit)
@@ -467,7 +473,7 @@ class UnitDispatchSystem(object):
                      TaskGo(
                        stage=self._stage,
                        unit=unit,
-                       target=job['dependent']['location'],
+                       target=dependent['location'],
                        delay=0,
                        blocked_proc=
                          do_both(abort,
@@ -476,7 +482,7 @@ class UnitDispatchSystem(object):
                    lambda abort, finish:
                      Contribute(
                        entity=entity,
-                       job=job['dependent'],
+                       job=dependent,
                        finished_proc=finish)]
                 )
                 break
