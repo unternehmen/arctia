@@ -95,12 +95,12 @@ class Penguin(object):
         ## Gameplay stats
         self.movement_delay = 0
         self.hunger = 0
-        self.hunger_threshold = 100
+        self.hunger_threshold = 200
         self.hunger_diet = { 'fish': 200 }
         self.wandering_delay = 1
         self.brooding_duration = 12
         self.components = ['eating', 'wandering', 'brooding',
-                           'mining', 'hauling']
+                           'mining', 'hauling', 'building']
 
 def main():
     pygame.init()
@@ -139,6 +139,10 @@ def main():
              Bug(53, 50),
              Bug(54, 50)]
 
+    # bug - there's got to be a better way to put the list of mobs
+    #     into the stage object
+    stage.mobs = mobs
+
     # Set up game systems
     unit_dispatch_system = UnitDispatchSystem(stage)
     unit_draw_system = UnitDrawSystem()
@@ -152,7 +156,7 @@ def main():
     # UI elements
     drag_origin = None
 
-    tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile]
+    tools_list = [tools.mine, tools.stockpile, tools.delete_stockpile, tools.build_wall]
     current_tool = tools_list[0]
 
     subturn = 0
@@ -176,6 +180,7 @@ def main():
                         # Use the selected tool.
                         current_tool.start_on_tile(
                           camera.transform_screen_to_tile((mx, my)),
+                          stage,
                           player_team)
                 elif event.button == 3:
                     # Begin dragging the screen.
@@ -231,11 +236,12 @@ def main():
 
         # Hilight designations.
         for designation in player_team.designations:
-            loc = designation['location']
-            virtual_screen.blit(tileset,
-                                camera.transform_game_to_screen(
-                                  loc, scalar=16),
-                                (160, 0, 16, 16))
+            if not 'hidden' in designation or not designation['hidden']:
+                loc = designation['location']
+                virtual_screen.blit(tileset,
+                                    camera.transform_game_to_screen(
+                                      loc, scalar=16),
+                                    (160, 0, 16, 16))
 
         # Draw stuff related to the current tool.
         current_tool.draw(virtual_screen, camera, tileset, (mouse_x, mouse_y))

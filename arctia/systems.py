@@ -4,12 +4,78 @@ The systems module provides classes which update the game's state.
 from functools import partial
 import random
 
-from .common import tile_is_solid
+from .common import tile_is_solid, unit_can_reach
 from .partition import partition
 from .transform import translate
 from .task import TaskEat, TaskGo, TaskWait, TaskMine, TaskTake, \
-                  TaskTrade, TaskGoToAnyMatchingSpot, TaskDrop
+                  TaskGoToAnyMatchingSpot, TaskDrop
+from arctia.tasks import Contribute, Build, GoBeside
 
+def assign_tasks(unit, designation, deps, tasklist):
+    """
+    Assign a unit to perform a sequence of tasks.
+
+    Args:
+        unit: The unit which shall do the tasks
+        designation: The designation of the job or None
+        deps: The list of things which should be reserved for the unit
+            to perform the task.  This must be a list of tuples of the
+            following form: [(kind, obj), ...].  For example,
+            [('location', (2, 2))] means the unit should reserve the
+            location at coordinates (2, 2).
+        tasklist: A list of functions which all return a task.  Each
+            function should take two arguments, `abort` and `finish`,
+            which are callbacks which may be hooked into the tasks in
+            order to carry out the task sequence.
+    """
+    def abort():
+        if unit.team:
+            for kind, obj in deps:
+                unit.team.relinquish(kind, obj)
+        unit.task = None
+    def finish():
+        abort()
+        if designation:
+            designation['done'] = True
+    next_proc = finish
+    for task in reversed(tasklist):
+        def proc(task, next_proc):
+            unit.task = task(abort, next_proc)
+        next_proc = partial(proc, task, next_proc)
+    if unit.team:
+        for kind, obj in deps:
+            unit.team.reserve(kind, obj)
+    next_proc()
+
+def _die_cannot_dump():
+    assert False, 'error: no accessible dump location'
+
+def assign_dump_job_func(stage, unit, entity, condition_func):
+    def func():
+        assign_tasks(unit, None,
+                     [('entity', entity)],
+                     [lambda _unused_abort, finish:
+                        TaskGoToAnyMatchingSpot(
+                          stage, unit,
+                          condition_func=condition_func,
+                          impossible_proc=_die_cannot_dump,
+                          finished_proc=finish),
+                      lambda abort, finish:
+                        TaskDrop(stage, entity, unit,
+                                 blocked_proc=
+                                   do_both(
+                                     abort,
+                                     assign_dump_job_func(
+                                       stage, unit, entity,
+                                       condition_func)),
+                                 finished_proc=finish)])
+    return func
+
+def do_both(proc_a, proc_b):
+    def wrapper():
+        proc_a()
+        proc_b()
+    return wrapper
 
 def _refresh_partitions_of_mobs(stage, mobs):
     # This currently assumes that all mobs have
@@ -119,10 +185,7 @@ class UnitDispatchSystem(object):
         """
         self._units.append(unit)
 
-    def _seek_idling_job(self, unit):
-        def _forget_task(unit):
-            unit.task = None
-
+    def _try_assigning_idling_job(self, unit):
         # Choose whether to brood or to wander.
         choices = ['wandering', 'brooding']
         choices = \
@@ -150,25 +213,21 @@ class UnitDispatchSystem(object):
                     goal = shifted
 
             # Go to our goal position.
-            unit.task = TaskGo(self._stage, unit, goal,
-                               delay=\
-                                 unit.movement_delay \
-                                 + unit.wandering_delay,
-                               blocked_proc=\
-                                 partial(_forget_task, unit),
-                               finished_proc=\
-                                 partial(_forget_task, unit))
+            assign_tasks(unit, None, [],
+                         [lambda abort, finish:
+                            TaskGo(self._stage, unit, goal,
+                                   delay=unit.movement_delay
+                                         + unit.wandering_delay,
+                                   blocked_proc=abort,
+                                   finished_proc=finish)])
         elif selected == 'brooding':
-            unit.task = TaskWait(duration=unit.brooding_duration,
-                                 finished_proc=\
-                                   partial(_forget_task, unit))
+            # Do nothing for the unit's brooding duration.
+            assign_tasks(unit, None, [],
+                         [lambda _unused_abort, finish:
+                            TaskWait(duration=unit.brooding_duration,
+                                     finished_proc=finish)])
 
-    def _seek_eating_job(self, unit):
-        def _forget_task(unit, entity):
-            unit.task = None
-            if unit.team:
-                unit.team.relinquish('entity', entity)
-
+    def _try_assigning_eating_job(self, unit):
         if not unit.task and unit.hunger >= unit.hunger_threshold:
             # Find a piece of food the unit can reach.
             def _is_valid_food(unit, entity, _unused_x, _unused_y):
@@ -187,29 +246,19 @@ class UnitDispatchSystem(object):
             if result:
                 entity, _ = result
 
-                def _eat_food(unit, entity):
-                    unit.task = TaskEat(self._stage,
-                                        unit, entity,
-                                        interrupted_proc=\
-                                          partial(_forget_task,
-                                                  unit, entity),
-                                        finished_proc=\
-                                          partial(_forget_task,
-                                                  unit, entity))
+                assign_tasks(unit, None,
+                             [('entity', entity)],
+                             [lambda abort, finish:
+                                TaskGo(self._stage, unit, entity.location,
+                                       delay=unit.movement_delay,
+                                       blocked_proc=abort,
+                                       finished_proc=finish),
+                              lambda abort, finish:
+                                TaskEat(self._stage, unit, entity,
+                                        interrupted_proc=abort,
+                                        finished_proc=finish)])
 
-                if unit.team:
-                    unit.team.reserve('entity', entity)
-                unit.task = TaskGo(self._stage, unit,
-                                   entity.location,
-                                   delay=unit.movement_delay,
-                                   blocked_proc=\
-                                     partial(_forget_task,
-                                             unit, entity),
-                                   finished_proc=\
-                                     partial(_eat_food,
-                                             unit, entity))
-
-    def _seek_mining_job(self, unit):
+    def _try_assigning_mining_job(self, unit):
         assert unit.team, 'unit considered mining but has no team'
 
         # Find a mining job first.
@@ -227,32 +276,19 @@ class UnitDispatchSystem(object):
                 continue
 
             # Take the job.
-            def _complete_mining(designation):
-                designation['done'] = True
-                unit.task = None
+            assign_tasks(unit, designation,
+                         [('mine', designation)],
+                         [lambda abort, finish:
+                            TaskGo(self._stage, unit, loc,
+                                   blocked_proc=abort,
+                                   finished_proc=finish),
+                          lambda abort, finish:
+                            TaskMine(self._stage, unit, loc,
+                                     finished_proc=finish)])
+            break
 
-            def _forget_job(designation):
-                unit.team.relinquish('mine', designation)
-                unit.task = None
 
-            def _start_mining(designation):
-                loc = designation['location']
-                task = TaskMine(self._stage, unit, loc,
-                                finished_proc = \
-                                  partial(_complete_mining,
-                                          designation))
-                unit.task = task
-
-            task = TaskGo(self._stage, unit, loc,
-                          blocked_proc=\
-                            partial(_forget_job, designation),
-                          finished_proc=\
-                            partial(_start_mining, designation))
-            unit.task = task
-            unit.team.reserve('mine', designation)
-            return
-
-    def _seek_hauling_job(self, unit):
+    def _try_assigning_hauling_job(self, unit):
         assert unit.team, 'unit considered hauling but has no team'
 
         for stock in unit.team.stockpiles:
@@ -270,7 +306,7 @@ class UnitDispatchSystem(object):
                     loc = x, y
                     ent = self._stage.entity_at(loc)
 
-                    if ent and ent.kind in accepted_kinds:
+                    if ent:
                         continue
 
                     if unit.team.is_reserved('location', loc):
@@ -310,113 +346,175 @@ class UnitDispatchSystem(object):
                 break
 
             # Otherwise, take the hauling job.
-            entity, loc = result
-            x, y = loc
+            entity, _ = result
 
-            def _start_haul_job(stock, entity, chosen_slot):
-                unit.team.reserve('location', chosen_slot)
-                unit.team.reserve('entity', entity)
-                unit.task = \
-                    TaskGo(self._stage, unit,
-                           target=entity.location,
-                           delay=0,
-                           blocked_proc=\
-                             partial(_abort_entity_inaccessible,
-                                     stock, entity, chosen_slot),
-                           finished_proc=
-                             partial(_pick_up_entity,
-                                     stock, entity, chosen_slot))
+            assign_dump_job = \
+              assign_dump_job_func(
+                self._stage, unit, entity,
+                lambda loc:
+                  not self._stage.entity_at(loc)
+                  and not unit.team.is_reserved('location', loc))
+            assign_tasks(unit, None,
+                         [('location', chosen_slot),
+                          ('entity', entity)],
+                         [lambda abort, finish:
+                            TaskGo(self._stage, unit,
+                                   target=entity.location,
+                                   delay=0,
+                                   blocked_proc=abort,
+                                   finished_proc=finish),
+                          lambda abort, finish:
+                            TaskTake(self._stage, unit, entity,
+                                     not_found_proc=abort,
+                                     finished_proc=finish),
+                          lambda abort, finish:
+                            TaskGo(self._stage, unit,
+                                   target=chosen_slot,
+                                   delay=0,
+                                   blocked_proc=
+                                     do_both(abort, assign_dump_job),
+                                   finished_proc=finish),
+                          lambda abort, finish:
+                            TaskDrop(self._stage, entity, unit,
+                                     blocked_proc=
+                                       do_both(abort, assign_dump_job),
+                                     finished_proc=finish)])
+            break
 
+    def _try_assigning_cleaning_job(self, unit):
+        # Find a stockpile that has an unfitting item in it.
+        found = False
+        for stockpile in unit.team.stockpiles:
+            if not unit.partition[stockpile.y][stockpile.x]:
+                continue
+            for y in range(stockpile.y,
+                           stockpile.y + stockpile.height):
+                for x in range(stockpile.x,
+                               stockpile.x + stockpile.width):
+                    entity = self._stage.entity_at((x, y))
+                    if not entity:
+                        continue
+                    if entity.kind not in stockpile.accepted_kinds \
+                       and not unit.team.is_reserved('entity', entity):
+                        found = True
+                        break
+                if found:
+                    break
+            if found:
+                break
 
-            def _pick_up_entity(stock, entity, chosen_slot):
-                unit.task = \
-                    TaskTake(self._stage, unit, entity,
-                             not_found_proc=\
-                               partial(_abort_entity_inaccessible,
-                                       stock, entity, chosen_slot),
-                             finished_proc=\
-                               partial(_haul_entity_to_slot,
-                                       stock, entity, chosen_slot))
-
-            def _abort_entity_inaccessible(_unused_stock,
-                                          entity, chosen_slot):
-                unit.team.relinquish('location', chosen_slot)
-                unit.team.relinquish('entity', entity)
-                unit.task = None
-
-            def _haul_entity_to_slot(stock, entity, chosen_slot):
-                unit.team.relinquish('entity', entity)
-                unit.task = \
-                    TaskGo(self._stage, unit,
-                           target=chosen_slot,
-                           delay=0,
-                           blocked_proc=\
-                             partial(_abort_dump_wherever,
-                                     stock, entity, chosen_slot),
-                           finished_proc=\
-                             partial(_put_entity_into_slot,
-                                     stock, entity, chosen_slot))
-
-            def _abort_dump_wherever(stock, entity, chosen_slot):
-                def _location_is_empty(loc):
-                    return not self._stage.entity_at(loc)
-                if unit.team.is_reserved('location', chosen_slot):
-                    unit.team.relinquish('location', chosen_slot)
-                unit.task = \
-                  TaskGoToAnyMatchingSpot(
-                    self._stage, unit,
-                    condition_func=_location_is_empty,
-                    impossible_proc=\
-                      partial(_die_no_dump_location,
-                              stock, entity, chosen_slot),
-                    finished_proc=\
-                      partial(_try_to_dump,
-                              stock, entity, chosen_slot))
-
-            def _try_to_dump(stock, entity, chosen_slot):
-                unit.task = \
-                  TaskDrop(
-                    self._stage, entity, unit,
-                    blocked_proc=\
-                      partial(_abort_dump_wherever,
-                              stock, entity, chosen_slot),
-                    finished_proc=_abort_no_cleanup_needed)
-
-            def _die_no_dump_location(_unused_stock,
-                                     _unused_entity,
-                                     _unused_chosen_slot):
-                assert False, 'error: no accessible dump location'
-
-            def _put_entity_into_slot(stock, entity, chosen_slot):
-                occupier = self._stage.entity_at(chosen_slot)
-
-                if occupier:
-                    unit.task = \
-                      TaskTrade(
-                        self._stage, entity, unit, occupier,
-                        finished_proc=\
-                          partial(_abort_dump_wherever,
-                                  stock, occupier, chosen_slot))
-                else:
-                    unit.task = \
-                      TaskDrop(
-                        self._stage, entity, unit,
-                        blocked_proc=\
-                          partial(_put_entity_into_slot,
-                                  stock, entity, chosen_slot),
-                        finished_proc=\
-                          partial(_abort_and_relinquish_slot,
-                                  stock, entity, chosen_slot))
-
-            def _abort_no_cleanup_needed():
-                unit.task = None
-
-            def _abort_and_relinquish_slot(stock, entity, chosen_slot):
-                unit.team.relinquish('location', chosen_slot)
-                unit.task = None
-
-            _start_haul_job(stock, entity, chosen_slot)
+        # Return if none were found
+        if not found:
             return
+
+        # Get that item and put it elsewhere.
+        assign_tasks(unit, None,
+                     [('entity', entity)],
+                     [lambda abort, finish:
+                        TaskGo(self._stage, unit,
+                               target=entity.location,
+                               delay=0,
+                               blocked_proc=abort,
+                               finished_proc=finish),
+                      lambda abort, finish:
+                        TaskTake(self._stage, unit, entity,
+                                 not_found_proc=abort,
+                                 finished_proc=
+                                   do_both(
+                                     finish,
+                                     assign_dump_job_func(
+                                       self._stage, unit, entity,
+                                       lambda loc:
+                                         not self._stage.entity_at(loc)
+                                         and not unit.team.is_reserved('location', loc)
+                                         and not stockpile.containsloc(loc))))])
+
+    def _try_assigning_scaffolding_job(self, unit):
+        jobs = unit.team.get_unreserved_designations('scaffold')
+
+        for job in jobs:
+            if not unit_can_reach(unit, job['dependent']['location']):
+                continue
+
+            entity, _ = job['resource'](unit)
+
+            assign_dump_job = \
+              assign_dump_job_func(
+                self._stage, unit, entity,
+                lambda loc:
+                  not self._stage.entity_at(loc)
+                  and not unit.team.is_reserved('location', loc))
+
+            if entity:
+                assign_tasks(
+                  unit, job,
+                  [('entity', entity),
+                   ('designation', job)],
+                  [lambda abort, finish:
+                     TaskGo(stage=self._stage,
+                            unit=unit,
+                            target=entity.location,
+                            delay=0,
+                            blocked_proc=abort,
+                            finished_proc=finish),
+                   lambda abort, finish:
+                     TaskTake(stage=self._stage,
+                              unit=unit,
+                              entity=entity,
+                              not_found_proc=abort,
+                              finished_proc=finish),
+                   lambda abort, finish:
+                     TaskGo(
+                       stage=self._stage,
+                       unit=unit,
+                       target=job['dependent']['location'],
+                       delay=0,
+                       blocked_proc=
+                         do_both(abort,
+                                 assign_dump_job),
+                       finished_proc=finish),
+                   lambda abort, finish:
+                     Contribute(
+                       entity=entity,
+                       job=job['dependent'],
+                       finished_proc=finish)]
+                )
+                break
+
+    def _try_assigning_building_job(self, unit):
+        jobs = unit.team.get_unreserved_designations('build')
+
+        for job in jobs:
+            if not unit_can_reach(unit, job['location']):
+                continue
+
+            scaffolds_done = True
+            for scaffold_job in job['scaffold_jobs']:
+                if not scaffold_job['done']:
+                    scaffolds_done = False
+                    break
+
+            if not scaffolds_done:
+                continue
+
+            assign_tasks(
+              unit, job,
+              [('designation', job)],
+              [lambda abort, finish:
+                 GoBeside(
+                   stage=self._stage,
+                   unit=unit,
+                   target=job['location'],
+                   delay=0,
+                   blocked_proc=abort,
+                   finished_proc=finish),
+               lambda _unused_abort, finish:
+                 Build(stage=self._stage,
+                       unit=unit,
+                       target=job['location'],
+                       finished_proc=finish)]
+            )
+            break
 
     def update(self):
         """
@@ -429,17 +527,31 @@ class UnitDispatchSystem(object):
 
         for unit in self._units:
             if not unit.task:
+                # First priority: eating
                 if 'eating' in unit.components:
-                    self._seek_eating_job(unit)
+                    self._try_assigning_eating_job(unit)
 
-                if not unit.task and 'mining' in unit.components:
-                    self._seek_mining_job(unit)
+                # Second priority: building
+                if not unit.task and 'building' in unit.components:
+                    self._try_assigning_building_job(unit)
 
+                # Third priority: scaffolding
                 if not unit.task and 'hauling' in unit.components:
-                    self._seek_hauling_job(unit)
+                    self._try_assigning_scaffolding_job(unit)
 
+                # Fourth priority: mining
+                if not unit.task and 'mining' in unit.components:
+                    self._try_assigning_mining_job(unit)
+
+                # Fifth priority: hauling and cleaning
+                if not unit.task and 'hauling' in unit.components:
+                    self._try_assigning_hauling_job(unit)
+                    if not unit.task:
+                        self._try_assigning_cleaning_job(unit)
+
+                # Bottom priority: thumb-twiddling
                 if not unit.task:
-                    self._seek_idling_job(unit)
+                    self._try_assigning_idling_job(unit)
 
             if unit.task:
                 unit.task.enact()

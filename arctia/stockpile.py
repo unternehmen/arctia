@@ -13,3 +13,17 @@ class Stockpile(object):
                             camera.transform_game_to_screen(
                                 (x, y), scalar=16),
                             (176, 0, 16, 16))
+
+    def containsloc(self, loc):
+        """
+        Return whether a location is within the stockpile.
+
+        Args:
+            loc (tuple): a pair of (x, y) coordinates, e.g., (5, 3)
+
+        Returns:
+            True if the location is in the stockpile, otherwise False.
+        """
+        x, y = loc
+        return (x >= self.x and x < self.x + self.width
+                and y >= self.y and y < self.y + self.height)

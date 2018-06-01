@@ -9,7 +9,7 @@ active_icon_clip = (192, 32, 16, 16)
 
 _block_origin = None
 
-def start_on_tile(pos, player_team):
+def start_on_tile(pos, stage, player_team):
     # Delete the chosen stockpile
     for stock in player_team.stockpiles:
         if stock.x <= pos[0] < stock.x + stock.width \

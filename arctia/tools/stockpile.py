@@ -2,6 +2,7 @@ from ..config import MENU_WIDTH
 from ..common import tile_is_solid
 from ..transform import translate
 from ..stockpile import Stockpile
+from pygame import Rect
 
 
 tooltip = 'Create Stockpile'
@@ -11,7 +12,7 @@ active_icon_clip = (176, 32, 16, 16)
 
 _block_origin = None
 
-def start_on_tile(pos, player_team):
+def start_on_tile(pos, stage, player_team):
     global _block_origin
     _block_origin = pos
 
@@ -30,8 +31,9 @@ def stop_on_tile(pos, stage, player_team):
     top = min((ty, oy))
     bottom = max((ty, oy))
 
-    # Check if this conflicts with existing stockpiles.
     conflicts = False
+
+    # Check if this conflicts with existing stockpiles.
     for stock in player_team.stockpiles:
         sx, sy = stock.x, stock.y
         sw, sh = stock.width, stock.height
@@ -41,6 +43,13 @@ def stop_on_tile(pos, stage, player_team):
                 or sy + sh <= top):
             conflicts = True
             break
+
+    # Also check if there are no designations on the stockpile.
+    rect = Rect(left, top, right - left + 1, bottom - top + 1)
+    for designation in player_team.designations:
+        if not designation['done'] \
+           and rect.collidepoint(designation['location']):
+            conflicts = True
 
     all_walkable = True
     for y in range(top, bottom + 1):
