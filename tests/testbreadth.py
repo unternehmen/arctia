@@ -22,10 +22,10 @@ def test_breadth_blocked_in():
     assert path is None
 
 def test_breadth_on_object():
-    def _point_is_bug(point):
-        return stage.entity_at(point).kind == 'bug'
+    def _point_is_fish(point):
+        return stage.entity_at(point).kind == 'fish'
 
     stage = Stage('maps/test-valley.tmx')
-    path = find_path_to_matching(stage, (5, 12), _point_is_bug)
+    path = find_path_to_matching(stage, (5, 12), _point_is_fish)
     assert path is not None
     assert len(path) == 1
