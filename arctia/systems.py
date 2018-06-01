@@ -402,7 +402,7 @@ class UnitDispatchSystem(object):
             if found:
                 break
 
-        # Return out of this function if none were found
+        # Return if none were found
         if not found:
             return
 
