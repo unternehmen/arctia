@@ -428,10 +428,10 @@ class UnitDispatchSystem(object):
                                          and not unit.team.is_reserved('location', loc)
                                          and not stockpile.containsloc(loc))))])
 
-    def _try_assigning_scaffolding_job(unit):
+    def _try_assigning_scaffolding_job(self, unit):
         pass
 
-    def _try_assigning_building_job(unit):
+    def _try_assigning_building_job(self, unit):
         pass
 
     def update(self):
