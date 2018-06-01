@@ -100,7 +100,7 @@ class Penguin(object):
         self.wandering_delay = 1
         self.brooding_duration = 12
         self.components = ['eating', 'wandering', 'brooding',
-                           'mining', 'hauling']
+                           'mining', 'hauling', 'building']
 
 def main():
     pygame.init()

@@ -428,6 +428,12 @@ class UnitDispatchSystem(object):
                                          and not unit.team.is_reserved('location', loc)
                                          and not stockpile.containsloc(loc))))])
 
+    def _try_assigning_scaffolding_job(unit):
+        pass
+
+    def _try_assigning_building_job(unit):
+        pass
+
     def update(self):
         """
         Give jobs to all units that need them.
@@ -439,17 +445,29 @@ class UnitDispatchSystem(object):
 
         for unit in self._units:
             if not unit.task:
+                # First priority: eating
                 if 'eating' in unit.components:
                     self._try_assigning_eating_job(unit)
 
+                # Second priority: building
+                if not unit.task and 'building' in unit.components:
+                    self._try_assigning_building_job(unit)
+
+                # Third priority: scaffolding
+                if not unit.task and 'hauling' in unit.components:
+                    self._try_assigning_scaffolding_job(unit)
+
+                # Fourth priority: mining
                 if not unit.task and 'mining' in unit.components:
                     self._try_assigning_mining_job(unit)
 
+                # Fifth priority: hauling and cleaning
                 if not unit.task and 'hauling' in unit.components:
                     self._try_assigning_hauling_job(unit)
                     if not unit.task:
                         self._try_assigning_cleaning_job(unit)
 
+                # Bottom priority: thumb-twiddling
                 if not unit.task:
                     self._try_assigning_idling_job(unit)
 

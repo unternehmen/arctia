@@ -10,7 +10,8 @@ class Team(object):
         self.reservations = {
             'entity': [],
             'location': [],
-            'mine': []
+            'mine': [],
+            'designations': []
         }
         self.stockpiles = []
 
@@ -56,3 +57,19 @@ class Team(object):
         """
         self._assert_is_legal_kind(kind)
         return obj in self.reservations[kind]
+
+    def get_unreserved_designations(self, kind):
+        """
+        Return a list of all unreserved designations of a certain kind.
+
+        Args:
+            kind (string): The kind of designation.
+
+        Returns:
+            A list of all unreserved designations of the given kind.
+        """
+        return list(filter(lambda d:
+                             d['kind'] == kind
+                             and not self.is_reserved('designation', d),
+                           self.designations))
+
