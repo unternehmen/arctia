@@ -57,7 +57,7 @@ class GoBeside(object):
         # bug - if we are after an object and the object becomes
         #       unreachable, that should count as a block!
         # If the target is not reachable, call blocked_proc.
-        if not unit_can_reach(self.unit, self.target):
+        if not unit_can_reach(self._unit, self._target):
             self._finished = True
             self._blocked_proc()
             return

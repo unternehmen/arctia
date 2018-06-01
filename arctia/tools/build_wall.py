@@ -10,7 +10,18 @@ active_icon_clip = (144, 32, 16, 16)
 
 
 def start_on_tile(pos, stage, player_team):
-    if not tile_is_solid(stage.get_tile_at(*pos)):
+    designations = \
+      player_team.designations
+
+    already_exists = False
+    for designation in designations:
+        loc = designation['location']
+        if loc == pos:
+            already_exists = True
+            break
+
+    if not already_exists \
+       and not tile_is_solid(stage.get_tile_at(*pos)):
         scaffold_jobs = []
         for x in range(5):
             scaffold_jobs.append({
