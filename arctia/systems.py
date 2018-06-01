@@ -4,11 +4,12 @@ The systems module provides classes which update the game's state.
 from functools import partial
 import random
 
-from .common import tile_is_solid
+from .common import tile_is_solid, unit_can_reach
 from .partition import partition
 from .transform import translate
 from .task import TaskEat, TaskGo, TaskWait, TaskMine, TaskTake, \
                   TaskGoToAnyMatchingSpot, TaskDrop
+from arctia.tasks import Contribute
 
 def assign_tasks(unit, designation, deps, tasklist):
     """
@@ -429,7 +430,54 @@ class UnitDispatchSystem(object):
                                          and not stockpile.containsloc(loc))))])
 
     def _try_assigning_scaffolding_job(self, unit):
-        pass
+        jobs = unit.team.get_unreserved_designations('scaffold')
+
+        for job in jobs:
+            if unit_can_reach(unit, job['dependent']['location']):
+                # Find a reachable entity which matches the scaffold
+                entity, _ = job['resource'](unit)
+
+                assign_dump_job = \
+                  assign_dump_job_func(
+                    self._stage, unit, entity,
+                    lambda loc:
+                      not self._stage.entity_at(loc)
+                      and not unit.team.is_reserved('location', loc))
+                if entity:
+                    assign_tasks(
+                      unit, job,
+                      [('entity', entity),
+                       ('designation', job)],
+                      [lambda abort, finish:
+                         TaskGo(stage=self._stage,
+                                unit=unit,
+                                target=entity.location,
+                                delay=0,
+                                blocked_proc=abort,
+                                finished_proc=finish),
+                       lambda abort, finish:
+                         TaskTake(stage=self._stage,
+                                  unit=unit,
+                                  entity=entity,
+                                  not_found_proc=abort,
+                                  finished_proc=finish),
+                       lambda abort, finish:
+                         TaskGo(
+                           stage=self._stage,
+                           unit=unit,
+                           target=job['dependent']['location'],
+                           delay=0,
+                           blocked_proc=
+                             do_both(abort,
+                                     assign_dump_job),
+                           finished_proc=finish),
+                       lambda abort, finish:
+                         Contribute(
+                           entity=entity,
+                           job=job['dependent'],
+                           finished_proc=finish)]
+                    )
+                    break
 
     def _try_assigning_building_job(self, unit):
         pass

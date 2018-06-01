@@ -233,11 +233,12 @@ def main():
 
         # Hilight designations.
         for designation in player_team.designations:
-            loc = designation['location']
-            virtual_screen.blit(tileset,
-                                camera.transform_game_to_screen(
-                                  loc, scalar=16),
-                                (160, 0, 16, 16))
+            if not 'hidden' in designation or not designation['hidden']:
+                loc = designation['location']
+                virtual_screen.blit(tileset,
+                                    camera.transform_game_to_screen(
+                                      loc, scalar=16),
+                                    (160, 0, 16, 16))
 
         # Draw stuff related to the current tool.
         current_tool.draw(virtual_screen, camera, tileset, (mouse_x, mouse_y))

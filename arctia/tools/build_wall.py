@@ -1,3 +1,4 @@
+from functools import partial
 from ..config import MENU_WIDTH
 from ..transform import translate
 from ..common import tile_is_solid, unit_can_reach
@@ -14,7 +15,7 @@ def start_on_tile(pos, stage, player_team):
         for x in range(5):
             scaffold_jobs.append({
                 'kind': 'scaffold',
-                'location': pos,
+                'hidden': True,
                 'resource':
                   lambda unit:
                     stage.find_entity(
@@ -23,15 +24,17 @@ def start_on_tile(pos, stage, player_team):
                           unit_can_reach(unit, entity.location) \
                           and entity.kind == 'rock',
                         unit)),
-                'site': pos,
                 'done': False
             })
         build_job = {
             'kind': 'build',
             'location': pos,
             'scaffold_jobs': scaffold_jobs,
+            'collected_goods': [],
             'done': False
         }
+        for scaffold_job in scaffold_jobs:
+            scaffold_job['dependent'] = build_job
         player_team.designations.extend(scaffold_jobs)
         player_team.designations.append(build_job)
         print('Designations created:', scaffold_jobs + [build_job])

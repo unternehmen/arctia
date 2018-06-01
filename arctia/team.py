@@ -11,7 +11,7 @@ class Team(object):
             'entity': [],
             'location': [],
             'mine': [],
-            'designations': []
+            'designation': []
         }
         self.stockpiles = []
 
