@@ -274,33 +274,6 @@ class TaskGoToAnyMatchingSpot(object):
             self._path = astar(self._stage,
                                (unit.x, unit.y),
                                self._target)
-class TaskTrade(object):
-    def __init__(self, stage, entity, unit, occupier, finished_proc):
-        self._stage = stage
-        self._unit = unit
-        self._entity = entity
-        self._occupier = occupier
-        self._finished_proc = finished_proc
-
-    def enact(self):
-        unit = self._unit
-
-        held = self._entity
-        grounded = self._occupier
-
-        assert (unit.x, unit.y) == grounded.location
-        assert held is not None
-        assert grounded is not None
-
-        # Remove the object on the ground.
-        self._stage.delete_entity(grounded)
-
-        # Place the unit's object onto the ground.
-        self._stage.add_entity(held, (unit.x, unit.y))
-
-        # Complete the job.
-        self._finished_proc()
-        return
 
 class TaskEat(object):
     def __init__(self, stage, unit, entity,
